@@ -1,411 +1,247 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  View, TextInput, FlatList, Text, StyleSheet, Platform, 
-  ActivityIndicator, TouchableOpacity, SafeAreaView, KeyboardAvoidingView 
-} from 'react-native';
-import axios from 'axios';
+import React, { useEffect, useState } from 'react';
+import { api } from './api';
+import { Product, Category, DashboardStats } from './types';
 
-// 1. Cleansed base address to prevent doubling path blocks
-const API_URL = 'https://task-master-6ou2.onrender.com';
+export const Dashboard: React.FC = () => {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  
+  // Pipeline management hooks
+  const [search, setSearch] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [sortBy, setSortBy] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
-export default function App() {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [token, setToken] = useState<string | null>(null);
-  const [tasks, setTasks] = useState<any[]>([]);
-  const [taskInput, setTaskInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [isLoginMode, setIsLoginMode] = useState(true); 
+  // Form Field States with Assessment Validation Bounds
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    price: '',
+    stock_quantity: 0,
+    category: '',
+    image_url: ''
+  });
 
-  // Load token on startup
   useEffect(() => {
-    if (Platform.OS === 'web') {
-      const savedToken = localStorage.getItem('token');
-      if (savedToken) setToken(savedToken);
-    }
-  }, []);
+    loadDashboardData();
+  }, [search, selectedCategory, sortBy]);
 
-  // Fetch tasks whenever token changes
-  useEffect(() => {
-    if (token) {
-      fetchTasks();
-    }
-  }, [token]);
-
-  const fetchTasks = async () => {
+  const loadDashboardData = async () => {
     try {
-      // 2. Fixed concatenated endpoint query
-      const res = await axios.get(`${API_URL}/api/tasks/`, {
-        headers: { Authorization: `Token ${token}` },
-      });
-      setTasks(res.data);
-    } catch (error: any) {
-      console.error("Fetch error:", error.response?.data || error.message);
+      setError(null);
+      const [productsData, categoriesData, statsData] = await Promise.all([
+        api.getProducts(search, selectedCategory, sortBy),
+        api.getCategories(),
+        api.getStats()
+      ]);
+      setProducts(productsData);
+      setCategories(categoriesData);
+      setStats(statsData);
+    } catch (err: any) {
+      setError(err.message || 'An operational error occurred pulling backend resources.');
     }
   };
 
-  const handleAuth = async () => {
-    if (!username || !password) {
-      alert("Please enter both username and password");
-      return;
-    }
-    setLoading(true);
-    const endpoint = isLoginMode ? 'login' : 'register';
+  const handleOpenCreateModal = () => {
+    setEditingProduct(null);
+    setFormData({ name: '', description: '', price: '', stock_quantity: 0, category: categories[0]?.id || '', image_url: '' });
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEditModal = (product: Product) => {
+    setEditingProduct(product);
+    setFormData({
+      name: product.name,
+      description: product.description || '',
+      price: product.price,
+      stock_quantity: product.stock_quantity,
+      category: product.category,
+      image_url: product.image_url || ''
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Enforcing strict assessment requirement validations
+    if (!formData.name.trim()) return setError('Product Name is required.');
+    if (parseFloat(formData.price) <= 0 || isNaN(parseFloat(formData.price))) return setError('Price must be greater than 0.');
+    if (formData.stock_quantity < 0) return setError('Stock cannot be negative.');
+    if (!formData.category) return setError('Category selection is required.');
+
     try {
-      // 3. Fixed authorization request routing
-      const res = await axios.post(`${API_URL}/api/${endpoint}/`, { username, password });
-      const userToken = res.data.token;
-      
-      if (Platform.OS === 'web') {
-        localStorage.setItem('token', userToken);
+      if (editingProduct) {
+        await api.updateProduct(editingProduct.id, formData);
+      } else {
+        await api.createProduct(formData);
       }
-      setToken(userToken);
-      setUsername('');
-      setPassword('');
-    } catch (error: any) {
-      const errorMsg = error.response?.data ? JSON.stringify(error.response.data) : error.message;
-      alert(`${isLoginMode ? 'Login' : 'Sign up'} failed: ${errorMsg}`);
-    } finally {
-      setLoading(false);
+      setIsModalOpen(false);
+      loadDashboardData();
+    } catch (err: any) {
+      setError(err.message);
     }
   };
 
-  const addTask = async () => {
-    if (!taskInput.trim()) return;
-    try {
-      // 4. Fixed operational task push URI
-      const res = await axios.post(
-        `${API_URL}/api/tasks/`,
-        { title: taskInput }, 
-        { headers: { Authorization: `Token ${token}` } }
-      );
-      setTasks([...tasks, res.data]);
-      setTaskInput('');
-    } catch (error: any) {
-      const errorMsg = error.response?.data ? JSON.stringify(error.response.data) : error.message;
-      alert(`Failed to add task: ${errorMsg}`);
+  const handleDelete = async (id: number) => {
+    if (window.confirm('Are you certain you want to remove this product entry?')) {
+      try {
+        await api.deleteProduct(id);
+        loadDashboardData();
+      } catch (err: any) {
+        setError(err.message);
+      }
     }
   };
 
-  const handleLogout = () => {
-    if (Platform.OS === 'web') {
-      localStorage.removeItem('token');
-    }
-    setToken(null);
-    setTasks([]);
-  };
-
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4F46E5" />
-        <Text style={styles.loadingText}>Connecting to Task Master...</Text>
-      </View>
-    );
-  }
-
-  // -----------------------------------------
-  // SCREEN 1: THE AUTHENTICATION SCREEN
-  // -----------------------------------------
-  if (!token) {
-    return (
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
-        <View style={styles.authCard}>
-          <Text style={styles.authTitle}>
-            {isLoginMode ? 'Welcome Back' : 'Create Account'}
-          </Text>
-          <Text style={styles.authSubtitle}>
-            {isLoginMode ? 'Enter your details to access your tasks.' : 'Sign up to start organizing your life.'}
-          </Text>
-
-          <TextInput
-            style={styles.input}
-            placeholder="Username"
-            placeholderTextColor="#9CA3AF"
-            value={username}
-            onChangeText={setUsername}
-            autoCapitalize="none"
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            placeholderTextColor="#9CA3AF"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
-
-          <TouchableOpacity style={styles.primaryButton} onPress={handleAuth}>
-            <Text style={styles.primaryButtonText}>{isLoginMode ? 'Login' : 'Sign Up'}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.switchModeButton} onPress={() => setIsLoginMode(!isLoginMode)}>
-            <Text style={styles.switchModeText}>
-              {isLoginMode ? "Don't have an account? " : "Already have an account? "}
-              <Text style={styles.switchModeTextBold}>{isLoginMode ? 'Sign up here' : 'Login here'}</Text>
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
-    );
-  }
-
-  // -----------------------------------------
-  // SCREEN 2: THE MAIN DASHBOARD
-  // -----------------------------------------
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.dashboardContainer}>
-        
-        {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.headerTitle}>Task Master</Text>
-            <Text style={styles.headerSubtitle}>Let's get things done.</Text>
-          </View>
-          <TouchableOpacity style={styles.logoutPill} onPress={handleLogout}>
-            <Text style={styles.logoutText}>Logout</Text>
-          </TouchableOpacity>
-        </View>
+    <div style={{ padding: '24px', fontFamily: 'sans-serif', maxWidth: '1200px', margin: '0 auto' }}>
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+        <h2>Product Management Dashboard</h2>
+        <button onClick={handleOpenCreateModal} style={{ padding: '10px 16px', background: '#0070f3', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+          + Create Product
+        </button>
+      </header>
 
-        {/* Task Input Area */}
-        <View style={styles.inputRow}>
-          <TextInput
-            style={styles.taskInput}
-            placeholder="What needs to be done?"
-            placeholderTextColor="#9CA3AF"
-            value={taskInput}
-            onChangeText={setTaskInput}
-          />
-          <TouchableOpacity style={styles.addButton} onPress={addTask}>
-            <Text style={styles.addButtonText}>+</Text>
-          </TouchableOpacity>
-        </View>
+      {error && <div style={{ padding: '12px', background: '#fee2e2', color: '#991b1b', marginBottom: '16px', borderRadius: '4px' }}>{error}</div>}
 
-        {/* Task List */}
-        <FlatList
-          data={tasks}
-          keyExtractor={(item) => item.id.toString()}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          renderItem={({ item }) => (
-            <View style={styles.taskCard}>
-              <View style={styles.taskCheckCircle} />
-              <Text style={styles.taskText}>{item.title}</Text>
-            </View>
-          )}
-          ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyStateEmoji}>✨</Text>
-              <Text style={styles.emptyStateText}>You're all caught up!</Text>
-              <Text style={styles.emptyStateSub}>Add a task above to begin.</Text>
-            </View>
-          }
+      {/* KPI Dashboard Card Grid Layout */}
+      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '32px' }}>
+        <div style={{ padding: '20px', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#fff' }}>
+          <h4 style={{ margin: '0 0 8px 0', color: '#4a5568' }}>Total Products</h4>
+          <p style={{ fontSize: '28px', fontWeight: 'bold', margin: 0 }}>{stats?.total_products || 0}</p>
+        </div>
+        <div style={{ padding: '20px', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#fff' }}>
+          <h4 style={{ margin: '0 0 8px 0', color: '#4a5568' }}>Total Categories</h4>
+          <p style={{ fontSize: '28px', fontWeight: 'bold', margin: 0 }}>{stats?.total_categories || 0}</p>
+        </div>
+        <div style={{ padding: '20px', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#fff' }}>
+          <h4 style={{ margin: '0 0 8px 0', color: '#4a5568' }}>Inventory Value</h4>
+          <p style={{ fontSize: '28px', fontWeight: 'bold', margin: 0, color: '#10b981' }}>
+            ₦{(stats?.inventory_value || 0).toLocaleString('en-NG', { minimumFractionDigits: 2 })}
+          </p>
+        </div>
+      </section>
+
+      {/* Search and Filters Layout toolbar */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+        <input 
+          type="text" 
+          placeholder="Search by Product Name..." 
+          value={search} 
+          onChange={(e) => setSearch(e.target.value)} 
+          style={{ padding: '8px 12px', width: '260px', border: '1px solid #cbd5e1', borderRadius: '4px' }}
         />
-      </View>
-    </SafeAreaView>
-  );
-}
+        <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} style={{ padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '4px' }}>
+          <option value="">All Categories</option>
+          {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+        <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={{ padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '4px' }}>
+          <option value="">Sort By</option>
+          <option value="price">Price: Low to High</option>
+          <option value="-price">Price: High to Low</option>
+        </select>
+      </div>
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F3F4F6', 
-    justifyContent: 'center',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F3F4F6',
-  },
-  loadingText: {
-    marginTop: 15,
-    color: '#6B7280',
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  authCard: {
-    backgroundColor: '#FFFFFF',
-    marginHorizontal: 30,
-    padding: 30,
-    borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.05,
-    shadowRadius: 20,
-    elevation: 5,
-  },
-  authTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#111827',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  authSubtitle: {
-    fontSize: 15,
-    color: '#6B7280',
-    marginBottom: 30,
-    textAlign: 'center',
-  },
-  input: {
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    padding: 16,
-    borderRadius: 12,
-    fontSize: 16,
-    marginBottom: 16,
-    color: '#111827',
-  },
-  primaryButton: {
-    backgroundColor: '#4F46E5', 
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 10,
-    shadowColor: '#4F46E5',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-    letterSpacing: 0.5,
-  },
-  switchModeButton: {
-    marginTop: 25,
-    alignItems: 'center',
-  },
-  switchModeText: {
-    color: '#6B7280',
-    fontSize: 14,
-  },
-  switchModeTextBold: {
-    color: '#4F46E5',
-    fontWeight: '700',
-  },
-  dashboardContainer: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'web' ? 40 : 20,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 30,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#111827',
-  },
-  headerSubtitle: {
-    fontSize: 15,
-    color: '#6B7280',
-    marginTop: 4,
-  },
-  logoutPill: {
-    backgroundColor: '#FEE2E2', 
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-  },
-  logoutText: {
-    color: '#DC2626',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    marginBottom: 25,
-    alignItems: 'center',
-  },
-  taskInput: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    padding: 16,
-    borderRadius: 15,
-    fontSize: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  addButton: {
-    backgroundColor: '#4F46E5',
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 12,
-    shadowColor: '#4F46E5',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  addButtonText: {
-    color: '#FFFFFF',
-    fontSize: 28,
-    fontWeight: '300',
-    lineHeight: 32, 
-  },
-  listContent: {
-    paddingBottom: 40,
-  },
-  taskCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    padding: 20,
-    borderRadius: 15,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 5,
-    elevation: 2,
-  },
-  taskCheckCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#D1D5DB',
-    marginRight: 15,
-  },
-  taskText: {
-    fontSize: 16,
-    color: '#374151',
-    flex: 1,
-  },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 60,
-  },
-  emptyStateEmoji: {
-    fontSize: 50,
-    marginBottom: 15,
-  },
-  emptyStateText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#111827',
-  },
-  emptyStateSub: {
-    fontSize: 15,
-    color: '#6B7280',
-    marginTop: 8,
-  },
-});
+      {/* Main Inventory Products Data Table Layout */}
+      <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', background: '#fff' }}>
+          <thead>
+            <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+              <th style={{ padding: '12px' }}>Image</th>
+              <th style={{ padding: '12px' }}>Product Name</th>
+              <th style={{ padding: '12px' }}>Category</th>
+              <th style={{ padding: '12px' }}>Price</th>
+              <th style={{ padding: '12px' }}>Stock Quantity</th>
+              <th style={{ padding: '12px' }}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {products.length === 0 ? (
+              <tr>
+                <td colSpan={6} style={{ textAlign: 'center', padding: '24px', color: '#64748b' }}>Empty search results or no available products.</td>
+              </tr>
+            ) : products.map(product => {
+              const isLowStock = product.stock_quantity < 5; // Bonus Requirement A
+              return (
+                <tr key={product.id} style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: isLowStock ? '#fff7ed' : 'transparent' }}>
+                  <td style={{ padding: '12px' }}>
+                    {product.image_url ? (
+                      <img src={product.image_url} alt={product.name} style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '4px' }} />
+                    ) : (
+                      <div style={{ width: '48px', height: '48px', background: '#e2e8f0', borderRadius: '4px' }} />
+                    )}
+                  </td>
+                  <td style={{ padding: '12px', fontWeight: 500 }}>{product.name}</td>
+                  <td style={{ padding: '12px', color: '#475569' }}>{product.category_name}</td>
+                  <td style={{ padding: '12px' }}>₦{parseFloat(product.price).toLocaleString()}</td>
+                  <td style={{ padding: '12px' }}>
+                    <span style={{ padding: '4px 8px', borderRadius: '4px', fontWeight: 'bold', fontSize: '13px', background: isLowStock ? '#ffedd5' : '#e2e8f0', color: isLowStock ? '#c2410c' : '#334155' }}>
+                      {product.stock_quantity} {isLowStock && '(Low Stock)'}
+                    </span>
+                  </td>
+                  <td style={{ padding: '12px' }}>
+                    <button onClick={() => handleOpenEditModal(product)} style={{ marginRight: '8px', padding: '6px 12px', background: '#e2e8f0', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Edit</button>
+                    <button onClick={() => handleDelete(product.id)} style={{ padding: '6px 12px', background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Delete</button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Create / Edit Modal Form Layout Component */}
+      {isModalOpen && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', zIndex: 1000 }}>
+          <form onSubmit={handleFormSubmit} style={{ background: '#fff', padding: '24px', borderRadius: '8px', maxWidth: '450px', width: '100%', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <h3>{editingProduct ? 'Edit Product Parameters' : 'Create New Inventory Product'}</h3>
+            
+            <label>Product Name *
+              <input type="text" required value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} style={{ width: '100%', padding: '8px', marginTop: '4px' }} />
+            </label>
+
+            <label>Description
+              <textarea value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} style={{ width: '100%', padding: '8px', marginTop: '4px' }} />
+            </label>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <label>Price (₦) *
+                <input type="number" step="0.01" required value={formData.price} onChange={(e) => setFormData({...formData, price: e.target.value})} style={{ width: '100%', padding: '8px', marginTop: '4px' }} />
+              </label>
+              <label>Stock Quantity *
+                <input type="number" required value={formData.stock_quantity} onChange={(e) => setFormData({...formData, stock_quantity: parseInt(e.target.value) || 0})} style={{ width: '100%', padding: '8px', marginTop: '4px' }} />
+              </label>
+            </div>
+
+            <label>Category *
+              <select value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})} style={{ width: '100%', padding: '8px', marginTop: '4px' }}>
+                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </label>
+
+            <label>Product Image URL
+              <input type="url" value={formData.image_url} onChange={(e) => setFormData({...formData, image_url: e.target.value})} style={{ width: '100%', padding: '8px', marginTop: '4px' }} />
+            </label>
+
+            {/* Bonus C: Live Product Image Preview Before Saving */}
+            {formData.image_url && (
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ margin: '0 0 4px 0', fontSize: '12px', color: '#64748b' }}>Image Preview:</p>
+                <img src={formData.image_url} alt="Preview" style={{ maxWidth: '100%', maxHeight: '100px', objectFit: 'contain', borderRadius: '4px', border: '1px solid #e2e8f0' }} onError={(e)=>{(e.target as HTMLElement).style.display='none'}} />
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '8px' }}>
+              <button type="button" onClick={() => setIsModalOpen(false)} style={{ padding: '8px 16px', background: '#cbd5e1', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Cancel</button>
+              <button type="submit" style={{ padding: '8px 16px', background: '#0070f3', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Save Changes</button>
+            </div>
+          </form>
+        </div>
+      )}
+    </div>
+  );
+};
