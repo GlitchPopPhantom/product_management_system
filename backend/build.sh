@@ -2,16 +2,19 @@
 # Exit immediately if a command exits with a non-zero status
 set -o errexit
 
-# 1. Install dependencies
+# 1. Install project dependencies
 pip install -r requirements.txt
 
-# 2. Run migrations FIRST to create the api_category table before the app loads
-python manage.py migrate --run-syncdb
+# 2. Force Django to generate fresh migration files from your clean models
+python manage.py makemigrations api
 
-# 3. Compile static assets safely now that the tables exist
+# 3. Apply the newly generated migrations to build your database tables
+python manage.py migrate
+
+# 4. Compile static assets safely now that schemas are fully configured
 DATABASE_URL="postgres://dummy:dummy@localhost:5432/dummy" python manage.py collectstatic --no-input
 
-# 4. Seed the 12 required categories
+# 5. Populate database with your 12 product categories
 python manage.py shell -c "
 from api.models import Category
 categories = [
@@ -21,5 +24,5 @@ categories = [
 ]
 for cat_name in categories:
     Category.objects.get_or_create(name=cat_name)
-print('Successfully populated database with 12 categories!')
+print('Successfully seeded database with 12 categories!')
 "
