@@ -67,10 +67,9 @@ class CategoryListCreate(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # 1. Look at the database
         queryset = Category.objects.all()
         
-        # 2. If it is completely empty, inject the 12 baseline categories instantly
+        # If the database tables are empty, populate the 12 options automatically on load
         if not queryset.exists():
             categories = [
                 'Electronics', 'Clothing', 'Groceries', 'Home Appliances', 
@@ -79,8 +78,6 @@ class CategoryListCreate(generics.ListCreateAPIView):
             ]
             for cat_name in categories:
                 Category.objects.get_or_create(name=cat_name)
-            
-            # 3. Pull the fresh list out of the database
             queryset = Category.objects.all()
             
         return queryset
