@@ -16,16 +16,17 @@ class Product(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
     
-    # Validation: Price must be greater than 0 (minimum 0.01)
+    # Validation: Price must be greater than 0
     price = models.DecimalField(
         max_digits=12, 
         decimal_places=2, 
         validators=[MinValueValidator(0.01)]
     )
     
-    category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='products')
+    # EXACT REQUIREMENT FIELD NAME: category_id
+    category_id = models.ForeignKey(Category, on_delete=models.CASCADE, db_column='category_id', related_name='products')
     
-    # Validation: Stock cannot be negative
+    # EXACT REQUIREMENT FIELD NAMES
     stock_quantity = models.IntegerField(validators=[MinValueValidator(0)])
     image_url = models.URLField(max_length=500, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
