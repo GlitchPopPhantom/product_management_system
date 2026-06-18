@@ -5,13 +5,13 @@ set -o errexit
 # 1. Install dependencies
 pip install -r requirements.txt
 
-# 2. Compile static assets safely
-DATABASE_URL="postgres://dummy:dummy@localhost:5432/dummy" python manage.py collectstatic --no-input
-
-# 3. Force table creation with the exact updated layout fields
+# 2. Run migrations FIRST to create the api_category table before the app loads
 python manage.py migrate --run-syncdb
 
-# 4. SEED EXTREMELY EXACT 12 ASSESSED CATEGORIES
+# 3. Compile static assets safely now that the tables exist
+DATABASE_URL="postgres://dummy:dummy@localhost:5432/dummy" python manage.py collectstatic --no-input
+
+# 4. Seed the 12 required categories
 python manage.py shell -c "
 from api.models import Category
 categories = [
@@ -21,5 +21,5 @@ categories = [
 ]
 for cat_name in categories:
     Category.objects.get_or_create(name=cat_name)
-print('Successfully populated database with exactly 12 required categories!')
+print('Successfully populated database with 12 categories!')
 "
