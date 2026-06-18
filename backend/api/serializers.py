@@ -7,7 +7,14 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class ProductSerializer(serializers.ModelSerializer):
-    # FIXED: Changed from category_id.name to category.name to pull from the model relation object safely
+    # This explicitly links the frontend's 'category_id' key to the database 'category' relation
+    category_id = serializers.PrimaryKeyRelatedField(
+        queryset=Category.objects.all(), 
+        source='category', 
+        write_only=False,
+        required=False,
+        allow_null=True
+    )
     category_name = serializers.ReadOnlyField(source='category.name')
 
     class Meta:
@@ -17,7 +24,7 @@ class ProductSerializer(serializers.ModelSerializer):
             'name', 
             'description', 
             'price', 
-            'category_id',  # This links the foreign key integer value from your form
+            'category_id', 
             'category_name', 
             'stock_quantity', 
             'image_url', 
