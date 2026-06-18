@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 
 // ==========================================
-// 1. CONFIGURATION & TYPES
+// CONFIGURATION & TYPES
 // ==========================================
 const BASE_URL = 'https://task-master-6ou2.onrender.com/api';
 
@@ -15,10 +15,10 @@ interface Product {
   name: string;
   description: string | null;
   price: string;
+  category_id: string; // Enforcing exact spec schema field
+  category_name?: string;
   stock_quantity: number;
   image_url: string | null;
-  category: string;
-  category_name?: string;
   created_at: string;
 }
 
@@ -28,7 +28,6 @@ interface DashboardStats {
   inventory_value: number;
 }
 
-// Helper to bundle authentication headers
 const getHeaders = () => {
   const token = localStorage.getItem('token');
   return {
@@ -37,9 +36,6 @@ const getHeaders = () => {
   };
 };
 
-// ==========================================
-// MAIN APP COMPONENT (Handles Page Switching)
-// ==========================================
 export default function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   const [isRegistering, setIsRegistering] = useState(false);
@@ -60,13 +56,13 @@ export default function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
-  // Form Field States
+  // Form Field States - Explicitly matching the exact database column spec
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     price: '',
     stock_quantity: 0,
-    category: '',
+    category_id: '',
     image_url: ''
   });
 
@@ -82,6 +78,8 @@ export default function App() {
       setUiError(null);
       const params = new URLSearchParams();
       if (search) params.append('search', search);
+      
+      // Pass category filtering using the correct parameter key for the backend filter calculation
       if (selectedCategory) params.append('category', selectedCategory);
       if (sortBy) params.append('ordering', sortBy);
 
@@ -92,7 +90,7 @@ export default function App() {
       ]);
 
       if (!prodRes.ok || !catRes.ok || !statRes.ok) {
-        throw new Error('Backend data synch failing.');
+        throw new Error('Backend synchronization is failing.');
       }
 
       const productsData = await prodRes.json();
@@ -148,7 +146,15 @@ export default function App() {
   // ==========================================
   const handleOpenCreateModal = () => {
     setEditingProduct(null);
-    setFormData({ name: '', description: '', price: '', stock_quantity: 0, category: categories[0]?.id || '', image_url: '' });
+    setFormData({ 
+      name: '', 
+      description: '', 
+      price: '', 
+      stock_quantity: 0, 
+      category_id: categories[0]?.id || '', 
+      image_url: '' 
+    });
+    setUiError(null);
     setIsModalOpen(true);
   };
 
@@ -159,19 +165,23 @@ export default function App() {
       description: product.description || '',
       price: product.price,
       stock_quantity: product.stock_quantity,
-      category: product.category,
+      category_id: product.category_id,
       image_url: product.image_url || ''
     });
+    setUiError(null);
     setIsModalOpen(true);
   };
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Catch dynamic fallback if selector value state left unclicked on load
+    const finalCategory = formData.category_id || (categories.length > 0 ? categories[0].id : '');
+
     if (!formData.name.trim()) return setUiError('Product Name is required.');
     if (parseFloat(formData.price) <= 0 || isNaN(parseFloat(formData.price))) return setUiError('Price must be greater than 0.');
     if (formData.stock_quantity < 0) return setUiError('Stock cannot be negative.');
-    if (!formData.category) return setUiError('Category field validation required.');
+    if (!finalCategory) return setUiError('Category field validation required.');
 
     try {
       const url = editingProduct ? `${BASE_URL}/products/${editingProduct.id}/` : `${BASE_URL}/products/`;
@@ -180,10 +190,20 @@ export default function App() {
       const res = await fetch(url, {
         method,
         headers: getHeaders(),
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          name: formData.name,
+          description: formData.description,
+          price: formData.price,
+          stock_quantity: formData.stock_quantity,
+          category_id: finalCategory,
+          image_url: formData.image_url
+        })
       });
 
-      if (!res.ok) throw new Error('Failed to preserve modifications to inventory records.');
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to preserve modifications to database rows.');
+      }
 
       setIsModalOpen(false);
       loadDashboardData();
@@ -193,7 +213,7 @@ export default function App() {
   };
 
   const handleDelete = async (id: number) => {
-    if (window.confirm('Delete this product permanently?')) {
+    if (window.confirm('Delete this product permanently with confirmation?')) {
       try {
         const res = await fetch(`${BASE_URL}/products/${id}/`, { method: 'DELETE', headers: getHeaders() });
         if (!res.ok) throw new Error('Removal request failed.');
@@ -205,7 +225,7 @@ export default function App() {
   };
 
   // ==========================================
-  // RENDER INTERFACE CORRESPONDING TO STATE
+  // USER INTERFACE ROUTING RENDER
   // ==========================================
   if (!token) {
     return (
@@ -248,7 +268,7 @@ export default function App() {
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>
           <button onClick={handleOpenCreateModal} style={{ padding: '10px 16px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>
-            + Add Product
+            + Create Product
           </button>
           <button onClick={handleLogout} style={{ padding: '10px 16px', background: '#64748b', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
             Logout
@@ -261,11 +281,11 @@ export default function App() {
       {/* KPI Dashboard Summary Card Matrix */}
       <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '32px' }}>
         <div style={{ padding: '20px', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-          <h4 style={{ margin: '0 0 8px 0', color: '#64748b', textTransform: 'uppercase', fontSize: '12px', letterSpacing: '0.05em' }}>Total Products</h4>
+          <h4 style={{ margin: '0 0 8px 0', color: '#64748b', textTransform: 'uppercase', fontSize: '12px', letterSpacing: '0.05em' }}>Products</h4>
           <p style={{ fontSize: '28px', fontWeight: 'bold', margin: 0 }}>{stats?.total_products || 0}</p>
         </div>
         <div style={{ padding: '20px', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-          <h4 style={{ margin: '0 0 8px 0', color: '#64748b', textTransform: 'uppercase', fontSize: '12px', letterSpacing: '0.05em' }}>Total Categories</h4>
+          <h4 style={{ margin: '0 0 8px 0', color: '#64748b', textTransform: 'uppercase', fontSize: '12px', letterSpacing: '0.05em' }}>Categories</h4>
           <p style={{ fontSize: '28px', fontWeight: 'bold', margin: 0 }}>{stats?.total_categories || 0}</p>
         </div>
         <div style={{ padding: '20px', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
@@ -280,17 +300,17 @@ export default function App() {
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginBottom: '20px' }}>
         <input 
           type="text" 
-          placeholder="Search product names..." 
+          placeholder="Search by Product Name..." 
           value={search} 
           onChange={(e) => setSearch(e.target.value)} 
           style={{ padding: '10px 14px', width: '280px', border: '1px solid #cbd5e1', borderRadius: '4px' }}
         />
         <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} style={{ padding: '10px 14px', border: '1px solid #cbd5e1', borderRadius: '4px', background: '#fff' }}>
-          <option value="">All Categories</option>
+          <option value="">Filter by Category</option>
           {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
         <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={{ padding: '10px 14px', border: '1px solid #cbd5e1', borderRadius: '4px', background: '#fff' }}>
-          <option value="">Sort Configuration</option>
+          <option value="">Sort by Price</option>
           <option value="price">Price: Low to High</option>
           <option value="-price">Price: High to Low</option>
         </select>
@@ -301,39 +321,39 @@ export default function App() {
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', background: '#fff' }}>
           <thead>
             <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '14px' }}>
-              <th style={{ padding: '14px' }}>Visual</th>
-              <th style={{ padding: '14px' }}>Item Details</th>
+              <th style={{ padding: '14px' }}>Image</th>
+              <th style={{ padding: '14px' }}>Product Name</th>
               <th style={{ padding: '14px' }}>Category</th>
-              <th style={{ padding: '14px' }}>Price Metric</th>
-              <th style={{ padding: '14px' }}>Stock Capacity</th>
+              <th style={{ padding: '14px' }}>Price</th>
+              <th style={{ padding: '14px' }}>Stock Quantity</th>
               <th style={{ padding: '14px', textAlign: 'right' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {products.length === 0 ? (
               <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '32px', color: '#94a3b8' }}>No records correspond to active selection filters.</td>
+                <td colSpan={6} style={{ textAlign: 'center', padding: '32px', color: '#94a3b8' }}>Empty search results.</td>
               </tr>
             ) : products.map(product => {
-              const isLowStock = product.stock_quantity < 5;
+              const isLowStock = product.stock_quantity < 5; // Bonus Task A: Inventory Alert
               return (
                 <tr key={product.id} style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: isLowStock ? '#fff7ed' : 'transparent', fontSize: '15px' }}>
                   <td style={{ padding: '14px' }}>
                     {product.image_url ? (
                       <img src={product.image_url} alt={product.name} style={{ width: '44px', height: '44px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #e2e8f0' }} />
                     ) : (
-                      <div style={{ width: '44px', height: '44px', background: '#f1f5f9', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: '11px' }}>N/A</div>
+                      <div style={{ width: '44px', height: '44px', background: '#f1f5f9', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: '11px' }}>No Image</div>
                     )}
                   </td>
                   <td style={{ padding: '14px' }}>
                     <div style={{ fontWeight: 600, color: '#0f172a' }}>{product.name}</div>
-                    <div style={{ fontSize: '13px', color: '#64748b', marginTop: '2px' }}>{product.description || 'No custom details added.'}</div>
+                    <div style={{ fontSize: '13px', color: '#64748b', marginTop: '2px' }}>{product.description || 'No description provided.'}</div>
                   </td>
                   <td style={{ padding: '14px', color: '#334155' }}>{product.category_name}</td>
                   <td style={{ padding: '14px', fontWeight: 500 }}>₦{parseFloat(product.price).toLocaleString('en-NG', { minimumFractionDigits: 2 })}</td>
                   <td style={{ padding: '14px' }}>
                     <span style={{ padding: '4px 8px', borderRadius: '4px', fontWeight: 'bold', fontSize: '12px', background: isLowStock ? '#ffedd5' : '#f1f5f9', color: isLowStock ? '#ea580c' : '#475569' }}>
-                      {product.stock_quantity} units {isLowStock && '⚠️'}
+                      {product.stock_quantity} {isLowStock && '(Low Stock < 5)'}
                     </span>
                   </td>
                   <td style={{ padding: '14px', textAlign: 'right' }}>
@@ -351,10 +371,10 @@ export default function App() {
       {isModalOpen && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(15, 23, 42, 0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', zIndex: 1000, backdropFilter: 'blur(4px)' }}>
           <form onSubmit={handleFormSubmit} style={{ background: '#fff', padding: '28px', borderRadius: '8px', maxWidth: '460px', width: '100%', display: 'flex', flexDirection: 'column', gap: '16px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
-            <h3 style={{ margin: '0 0 4px 0' }}>{editingProduct ? 'Modify Asset Variables' : 'Add New Inventory Entry'}</h3>
+            <h3 style={{ margin: '0 0 4px 0' }}>{editingProduct ? 'Update Product' : 'Create Product'}</h3>
             
             <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '14px', fontWeight: 500 }}>
-              Product Title *
+              Product Name *
               <input type="text" required value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} style={{ padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '4px' }} />
             </label>
 
@@ -365,30 +385,31 @@ export default function App() {
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '14px', fontWeight: 500 }}>
-                Price (₦) *
+                Price *
                 <input type="number" step="0.01" required value={formData.price} onChange={(e) => setFormData({...formData, price: e.target.value})} style={{ padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '4px' }} />
               </label>
               <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '14px', fontWeight: 500 }}>
-                Units in Stock *
+                Stock Quantity *
                 <input type="number" required value={formData.stock_quantity} onChange={(e) => setFormData({...formData, stock_quantity: parseInt(e.target.value) || 0})} style={{ padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '4px' }} />
               </label>
             </div>
 
             <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '14px', fontWeight: 500 }}>
-              Category Context Group *
-              <select value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})} style={{ padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '4px', background: '#fff' }}>
+              Category *
+              <select value={formData.category_id} onChange={(e) => setFormData({...formData, category_id: e.target.value})} style={{ padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '4px', background: '#fff' }}>
                 {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </label>
 
             <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '14px', fontWeight: 500 }}>
-              Product Image Asset Link URL
+              Product Image URL
               <input type="url" value={formData.image_url} onChange={(e) => setFormData({...formData, image_url: e.target.value})} style={{ padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '4px' }} />
             </label>
 
+            {/* Bonus Task C: Product Image Preview Before Saving */}
             {formData.image_url && (
               <div style={{ textAlign: 'center', border: '1px dashed #cbd5e1', padding: '8px', borderRadius: '6px' }}>
-                <img src={formData.image_url} alt="Resource View Preview" style={{ maxWidth: '100%', maxHeight: '90px', objectFit: 'contain' }} onError={(e)=>{(e.target as HTMLElement).style.display='none'}} />
+                <img src={formData.image_url} alt="Product Preview" style={{ maxWidth: '100%', maxHeight: '90px', objectFit: 'contain' }} onError={(e)=>{(e.target as HTMLElement).style.display='none'}} />
               </div>
             )}
 
