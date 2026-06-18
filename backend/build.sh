@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
-# Exit immediately if a command exits with a non-zero status
 set -o errexit
 
-# 1. Install dependencies
+# 1. Install project dependencies
 pip install -r requirements.txt
 
-# 2. Force Django to build the database tables directly from the models
-python manage.py migrate --run-syncdb
+# 2. FORCE Django to generate a brand new layout blueprint for your database
+python manage.py makemigrations api
 
-# 3. Compile static assets safely with a dummy database fallback URL
+# 3. Force Django to push that new layout into the database
+python manage.py migrate
+
+# 4. Compile static assets safely
 DATABASE_URL="postgres://dummy:dummy@localhost:5432/dummy" python manage.py collectstatic --no-input
 
-# 4. Seed the database with the 12 required categories
+# 5. Seed the database with the 12 required categories
 python manage.py shell -c "
 from api.models import Category
 categories = [
