@@ -91,4 +91,5 @@ class CategoryListCreate(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        # This dynamic method stops Django from running a database query at boot/build time
         return Category.objects.all()
