@@ -8,7 +8,9 @@ from django.db.models import Sum, F
 from .models import Product, Category
 from .serializers import ProductSerializer, CategorySerializer
 
-# 1. AUTHENTICATION (Unchanged)
+# ==========================================
+# 1. AUTHENTICATION
+# ==========================================
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register_user(request):
@@ -26,7 +28,9 @@ def register_user(request):
     return Response({'token': token.key}, status=status.HTTP_201_CREATED)
 
 
+# ==========================================
 # 2. DASHBOARD STATS CARD ENDPOINT
+# ==========================================
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def dashboard_stats(request):
@@ -50,12 +54,14 @@ def dashboard_stats(request):
     })
 
 
-# 3. REPURPOSED PRODUCT MANAGEMENT (CRUD, Filter, Search, Sort)
-class TaskListCreate(generics.ListCreateAPIView):
+# ==========================================
+# 3. PRODUCT MANAGEMENT (List & Create)
+# ==========================================
+class ProductListCreate(generics.ListCreateAPIView):
     serializer_class = ProductSerializer
     permission_classes = [IsAuthenticated]
     
-    # Native engines for Search, Category Filtering, and Price sorting
+    # Native engines for Search and Price sorting
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['name']
     ordering_fields = ['price']
@@ -76,17 +82,22 @@ class TaskListCreate(generics.ListCreateAPIView):
         serializer.save(user=self.request.user)
 
 
-# 4. CATEGORY ACCESSIBILITY
-class CategoryListCreate(generics.ListCreateAPIView):
-    queryset = Category.objects.all()
-    serializer_class = CategorySerializer
-    permission_classes = [IsAuthenticated]
-
-# 5. PRODUCT DETAIL MANAGEMENT (Update, Delete)
-class TaskDetail(generics.RetrieveUpdateDestroyAPIView):
+# ==========================================
+# 4. PRODUCT DETAIL MANAGEMENT (Read, Update, Delete)
+# ==========================================
+class ProductDetail(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = ProductSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # Only allow users to modify their own products
+        # Only allow users to view or modify their own products
         return Product.objects.filter(user=self.request.user)
+
+
+# ==========================================
+# 5. CATEGORY ACCESSIBILITY
+# ==========================================
+class CategoryListCreate(generics.ListCreateAPIView):
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+    permission_classes = [IsAuthenticated]
