@@ -67,10 +67,8 @@ class CategoryListCreate(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        queryset = Category.objects.all()
-        
-        # If the database tables are empty, populate the 12 options automatically on load
-        if not queryset.exists():
+        # FIXED: Run the check natively without modifying or rebuilding the clean queryset scope variable
+        if not Category.objects.exists():
             categories = [
                 'Electronics', 'Clothing', 'Groceries', 'Home Appliances', 
                 'Books', 'Health & Beauty', 'Automotive', 'Toys & Games', 
@@ -78,6 +76,6 @@ class CategoryListCreate(generics.ListCreateAPIView):
             ]
             for cat_name in categories:
                 Category.objects.get_or_create(name=cat_name)
-            queryset = Category.objects.all()
-            
-        return queryset
+                
+        # Return a completely pristine, unmutated lazy queryset matching DRF expectations
+        return Category.objects.all()
