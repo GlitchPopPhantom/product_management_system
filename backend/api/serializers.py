@@ -1,10 +1,14 @@
 from rest_framework import serializers
-from .models import Task
+from .models import Product, Category
 
-class TaskSerializer(serializers.ModelSerializer):
-    # This explicitly overrides the model and forces it to be read-only
-    user = serializers.PrimaryKeyRelatedField(read_only=True)
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = '__all__'
+
+class ProductSerializer(serializers.ModelSerializer):
+    category_name = serializers.ReadOnlyField(source='category.name')
 
     class Meta:
-        model = Task
-        fields = ['id', 'title', 'completed', 'user']
+        model = Product
+        fields = '__all__'
