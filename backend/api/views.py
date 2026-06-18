@@ -67,5 +67,20 @@ class CategoryListCreate(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # Using a lambda or dynamic check inside the method keeps the compilation safe
-        return Category.objects.all()
+        # 1. Look at the database
+        queryset = Category.objects.all()
+        
+        # 2. If it is completely empty, inject the 12 baseline categories instantly
+        if not queryset.exists():
+            categories = [
+                'Electronics', 'Clothing', 'Groceries', 'Home Appliances', 
+                'Books', 'Health & Beauty', 'Automotive', 'Toys & Games', 
+                'Sports & Outdoors', 'Office Supplies', 'Furniture', 'Other'
+            ]
+            for cat_name in categories:
+                Category.objects.get_or_create(name=cat_name)
+            
+            # 3. Pull the fresh list out of the database
+            queryset = Category.objects.all()
+            
+        return queryset
