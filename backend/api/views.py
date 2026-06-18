@@ -81,3 +81,12 @@ class CategoryListCreate(generics.ListCreateAPIView):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
     permission_classes = [IsAuthenticated]
+
+# 5. PRODUCT DETAIL MANAGEMENT (Update, Delete)
+class TaskDetail(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = ProductSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # Only allow users to modify their own products
+        return Product.objects.filter(user=self.request.user)
