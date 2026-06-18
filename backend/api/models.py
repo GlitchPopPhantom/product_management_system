@@ -5,7 +5,7 @@ from django.contrib.auth.models import User
 # 1. CATEGORY MODEL
 # ==========================================
 class Category(models.Model):
-    # FIXED: Changed max_value to max_length
+    # FIXED
     name = models.CharField(max_length=100, unique=True)
 
     def __str__(self):
@@ -16,7 +16,8 @@ class Category(models.Model):
 # ==========================================
 class Product(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='products')
-    name = models.CharField(max_value=255)
+    # FIXED: Changed max_value to max_length here too
+    name = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     stock_quantity = models.IntegerField(default=0)
