@@ -16,7 +16,7 @@ class Category(models.Model):
 # 2. PRODUCT MODEL
 # ==========================================
 class Product(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='products')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     # FIXED: Changed max_value to max_length here too
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
