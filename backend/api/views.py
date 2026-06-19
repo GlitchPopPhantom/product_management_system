@@ -5,8 +5,30 @@ from rest_framework import status, generics, filters
 from django.contrib.auth.models import User
 from rest_framework.authtoken.models import Token
 from django.db.models import Sum, F
+from django.db import connection
+from django.core.management import call_command
 from .models import Product, Category
 from .serializers import ProductSerializer, CategorySerializer
+
+def ensure_tables_exist():
+    """
+    Safely intercepts missing database tables caused by Render's ephemeral 
+    filesystem wiping build-time migration blueprints before deployment.
+    """
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_schema = 'public' 
+                AND table_name = 'api_category'
+            );
+        """)
+        table_exists = cursor.fetchone()[0]
+        
+    if not table_exists:
+        # Programmatically forge and write the missing tables directly to the DB
+        call_command('makemigrations', 'api', interactive=False)
+        call_command('migrate', 'api', interactive=False)
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -15,6 +37,8 @@ def register_user(request):
     password = request.data.get('password')
     if not username or not password:
         return Response({'error': 'Please provide both username and password'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    ensure_tables_exist()
     if User.objects.filter(username=username).exists():
         return Response({'error': 'Username already exists'}, status=status.HTTP_400_BAD_REQUEST)
     user = User.objects.create_user(username=username, password=password)
@@ -24,6 +48,7 @@ def register_user(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def dashboard_stats(request):
+    ensure_tables_exist()
     user_products = Product.objects.filter(user=request.user)
     total_products = user_products.count()
     total_categories = user_products.filter(category__isnull=False).values('category').distinct().count()
@@ -46,6 +71,7 @@ class ProductListCreate(generics.ListCreateAPIView):
     ordering_fields = ['price']
 
     def get_queryset(self):
+        ensure_tables_exist()
         queryset = Product.objects.filter(user=self.request.user).order_by('-created_at')
         category_id = self.request.query_params.get('category')
         if category_id:
@@ -53,6 +79,7 @@ class ProductListCreate(generics.ListCreateAPIView):
         return queryset
 
     def perform_create(self, serializer):
+        ensure_tables_exist()
         serializer.save(user=self.request.user)
 
 class ProductDetail(generics.RetrieveUpdateDestroyAPIView):
@@ -60,6 +87,7 @@ class ProductDetail(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        ensure_tables_exist()
         return Product.objects.filter(user=self.request.user)
 
 class CategoryListCreate(generics.ListCreateAPIView):
@@ -67,7 +95,9 @@ class CategoryListCreate(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # FIXED: Run the check natively without modifying or rebuilding the clean queryset scope variable
+        # Shield the query execution from standard Django model exceptions
+        ensure_tables_exist()
+        
         if not Category.objects.exists():
             categories = [
                 'Electronics', 'Clothing', 'Groceries', 'Home Appliances', 
@@ -77,5 +107,4 @@ class CategoryListCreate(generics.ListCreateAPIView):
             for cat_name in categories:
                 Category.objects.get_or_create(name=cat_name)
                 
-        # Return a completely pristine, unmutated lazy queryset matching DRF expectations
         return Category.objects.all()
