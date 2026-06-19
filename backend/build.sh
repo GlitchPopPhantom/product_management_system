@@ -6,9 +6,9 @@ pip install -r requirements.txt
 # Sync production static components
 python manage.py collectstatic --no-input
 
-# Mark migration 0001 as already handled so it skips the crash point
-python manage.py migrate api 0001 --fake --no-input
+# 1. Fake the initial schema so Django thinks 0001 is fully applied
+python manage.py migrate api --fake-initial --no-input
 
-# Run the rest of the updates smoothly
+# 2. Make any remaining changes safely
 python manage.py makemigrations --no-input
 python manage.py migrate --no-input
