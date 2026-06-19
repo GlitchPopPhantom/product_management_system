@@ -28,60 +28,141 @@ def ensure_tables_exist():
         call_command('makemigrations', 'api', interactive=False)
         call_command('migrate', 'api', interactive=False)
 
-    # Automatically check if the table should be seeded with mock elements
     seed_mock_products_if_empty()
 
 def seed_mock_products_if_empty():
     """
     Populates the database with 20 items in precise order if no elements exist.
     """
-    if not Product.objects.exists():
-        user, _ = User.objects.get_or_create(username='demo_user')
-        if _:
-            user.set_password('password123')
-            user.save()
+    try:
+        if not Product.objects.exists():
+            user, _ = User.objects.get_or_create(username='demo_user')
+            if _:
+                user.set_password('password123')
+                user.save()
 
-        categories = [
-            'Electronics', 'Clothing', 'Groceries', 'Home Appliances', 
-            'Books', 'Health & Beauty', 'Automotive', 'Toys & Games', 
-            'Sports & Outdoors', 'Office Supplies', 'Furniture', 'Other'
-        ]
+            categories = [
+                'Electronics', 'Clothing', 'Groceries', 'Home Appliances', 
+                'Books', 'Health & Beauty', 'Automotive', 'Toys & Games', 
+                'Sports & Outdoors', 'Office Supplies', 'Furniture', 'Other'
+            ]
+            
+            category_objects = {}
+            for cat_name in categories:
+                cat_obj, _ = Category.objects.get_or_create(name=cat_name)
+                category_objects[cat_name] = cat_obj
+
+            mock_items = [
+                ("Wireless Mechanical Keyboard", "RGB backlit mechanical keyboard with blue switches.", 45000.00, "Electronics", 15, "https://picsum.photos/id/0/300/200"),
+                ("Ergonomic Office Chair", "High-back mesh chair with lumbar support and adjustable armrests.", 85000.00, "Furniture", 8, "https://picsum.photos/id/1/300/200"),
+                ("Stainless Steel Water Bottle", "Double-wall vacuum insulated bottle, keeps drinks cold for 24 hours.", 12000.00, "Sports & Outdoors", 50, "https://picsum.photos/id/2/300/200"),
+                ("Noise-Canceling Headphones", "Over-ear Bluetooth headphones with active noise cancellation.", 95000.00, "Electronics", 12, "https://picsum.photos/id/3/300/200"),
+                ("Minimalist Leather Wallet", "Slim RFID-blocking wallet made from genuine top-grain leather.", 15000.00, "Clothing", 30, "https://picsum.photos/id/4/300/200"),
+                ("Smart Fitness Watch", "Tracks heart rate, sleep steps, and features built-in GPS.", 38000.00, "Electronics", 22, "https://picsum.photos/id/5/300/200"),
+                ("Ceramic Coffee Mug Set", "Set of 4 matte finish artisanal ceramic mugs.", 18500.00, "Home Appliances", 14, "https://picsum.photos/id/6/300/200"),
+                ("Organic Green Tea", "Premium loose-leaf green tea sourced from organic estates.", 4500.00, "Groceries", 100, "https://picsum.photos/id/7/300/200"),
+                ("Portable Power Bank", "20000mAh external battery pack with fast charging capabilities.", 22000.00, "Electronics", 40, "https://picsum.photos/id/8/300/200"),
+                ("Dimmable Desk Lamp", "LED desk lamp with 5 color modes and a built-in USB charging port.", 16500.00, "Office Supplies", 18, "https://picsum.photos/id/9/300/200"),
+                ("Running Shoes", "Lightweight, breathable athletic footwear for daily training.", 32000.00, "Clothing", 25, "https://picsum.photos/id/10/300/200"),
+                ("Professional Chef's Knife", "8-inch high-carbon stainless steel forged kitchen knife.", 28000.00, "Home Appliances", 10, "https://picsum.photos/id/11/300/200"),
+                ("Wireless Gaming Mouse", "Ultra-lightweight gaming mouse with high-precision optical sensor.", 24000.00, "Electronics", 35, "https://picsum.photos/id/12/300/200"),
+                ("Hardcover Sci-Fi Novel", "An epic space opera journey through uncharted solar systems.", 6500.00, "Books", 60, "https://picsum.photos/id/13/300/200"),
+                ("Moisturizing Face Cream", "Hydrating daily facial lotion infused with hyaluronic acid.", 14000.00, "Health & Beauty", 45, "https://picsum.photos/id/14/300/200"),
+                ("Compact Car Dashcam", "1080p full HD dashboard camera with night vision and G-sensor.", 35000.00, "Automotive", 11, "https://picsum.photos/id/15/300/200"),
+                ("Yoga Mat & Strap Set", "Non-slip eco-friendly exercise mat with carrying strap.", 15500.00, "Sports & Outdoors", 20, "https://picsum.photos/id/16/300/200"),
+                ("Bluetooth Pocket Speaker", "Waterproof mini speaker with surprisingly deep bass.", 19000.00, "Electronics", 28, "https://picsum.photos/id/17/300/200"),
+                ("Classic Aviator Sunglasses", "Polarized lenses with durable metal frames.", 13500.00, "Clothing", 55, "https://picsum.photos/id/18/300/200"),
+                ("Desktop Organizer Tray", "Wooden multi-compartment workspace layout organizer.", 11000.00, "Office Supplies", 16, "https://picsum.photos/id/19/300/200")
+            ]
+
+            for name, desc, price, cat_name, stock, img_url in mock_items:
+                Product.objects.get_or_create(
+                    user=user,
+                    name=name,
+                    description=desc,
+                    price=price,
+                    category=category_objects[cat_name],
+                    stock_quantity=stock,
+                    image_url=img_url
+                )
+    except Exception:
+        # Prevent database setup hiccups from freezing application startup
+        pass
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def register_user(request):
+    username = request.data.get('username')
+    password = request.data.get('password')
+    if not username or not password:
+        return Response({'error': 'Please provide both username and password'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    ensure_tables_exist()
+    if User.objects.filter(username=username).exists():
+        return Response({'error': 'Username already exists'}, status=status.HTTP_400_BAD_REQUEST)
+    user = User.objects.create_user(username=username, password=password)
+    token, created = Token.objects.get_or_create(user=user)
+    return Response({'token': token.key}, status=status.HTTP_201_CREATED)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def dashboard_stats(request):
+    ensure_tables_exist()
+    user_products = Product.objects.filter(user=request.user)
+    total_products = user_products.count()
+    total_categories = user_products.filter(category__isnull=False).values('category').distinct().count()
+    
+    inventory_calc = user_products.annotate(
+        total_value=F('price') * F('stock_quantity')
+    ).aggregate(grand_total=Sum('total_value'))['grand_total'] or 0.00
+
+    return Response({
+        "total_products": total_products,
+        "total_categories": total_categories,
+        "inventory_value": float(inventory_calc)
+    })
+
+class ProductListCreate(generics.ListCreateAPIView):
+    serializer_class = ProductSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['name']
+    ordering_fields = ['price']
+
+    def get_queryset(self):
+        ensure_tables_exist()
+        queryset = Product.objects.filter(user=self.request.user).order_by('-created_at')
+        category_id = self.request.query_params.get('category')
+        if category_id:
+            queryset = queryset.filter(category_id=category_id)
+        return queryset
+
+    def perform_create(self, serializer):
+        ensure_tables_exist()
+        serializer.save(user=self.request.user)
+
+class ProductDetail(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = ProductSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        ensure_tables_exist()
+        return Product.objects.filter(user=self.request.user)
+
+class CategoryListCreate(generics.ListCreateAPIView):
+    serializer_class = CategorySerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        ensure_tables_exist()
         
-        category_objects = {}
-        for cat_name in categories:
-            cat_obj, _ = Category.objects.get_or_create(name=cat_name)
-            category_objects[cat_name] = cat_obj
-
-        mock_items = [
-            ("Wireless Mechanical Keyboard", "RGB backlit mechanical keyboard with blue switches.", 45000.00, "Electronics", 15, "https://picsum.photos/id/0/300/200"),
-            ("Ergonomic Office Chair", "High-back mesh chair with lumbar support and adjustable armrests.", 85000.00, "Furniture", 8, "https://picsum.photos/id/1/300/200"),
-            ("Stainless Steel Water Bottle", "Double-wall vacuum insulated bottle, keeps drinks cold for 24 hours.", 12000.00, "Sports & Outdoors", 50, "https://picsum.photos/id/2/300/200"),
-            ("Noise-Canceling Headphones", "Over-ear Bluetooth headphones with active noise cancellation.", 95000.00, "Electronics", 12, "https://picsum.photos/id/3/300/200"),
-            ("Minimalist Leather Wallet", "Slim RFID-blocking wallet made from genuine top-grain leather.", 15000.00, "Clothing", 30, "https://picsum.photos/id/4/300/200"),
-            ("Smart Fitness Watch", "Tracks heart rate, sleep steps, and features built-in GPS.", 38000.00, "Electronics", 22, "https://picsum.photos/id/5/300/200"),
-            ("Ceramic Coffee Mug Set", "Set of 4 matte finish artisanal ceramic mugs.", 18500.00, "Home Appliances", 14, "https://picsum.photos/id/6/300/200"),
-            ("Organic Green Tea", "Premium loose-leaf green tea sourced from organic estates.", 4500.00, "Groceries", 100, "https://picsum.photos/id/7/300/200"),
-            ("Portable Power Bank", "20000mAh external battery pack with fast charging capabilities.", 22000.00, "Electronics", 40, "https://picsum.photos/id/8/300/200"),
-            ("Dimmable Desk Lamp", "LED desk lamp with 5 color modes and a built-in USB charging port.", 16500.00, "Office Supplies", 18, "https://picsum.photos/id/9/300/200"),
-            ("Running Shoes", "Lightweight, breathable athletic footwear for daily training.", 32000.00, "Clothing", 25, "https://picsum.photos/id/10/300/200"),
-            ("Professional Chef's Knife", "8-inch high-carbon stainless steel forged kitchen knife.", 28000.00, "Home Appliances", 10, "https://picsum.photos/id/11/300/200"),
-            ("Wireless Gaming Mouse", "Ultra-lightweight gaming mouse with high-precision optical sensor.", 24000.00, "Electronics", 35, "https://picsum.photos/id/12/300/200"),
-            ("Hardcover Sci-Fi Novel", "An epic space opera journey through uncharted solar systems.", 6500.00, "Books", 60, "https://picsum.photos/id/13/300/200"),
-            ("Moisturizing Face Cream", "Hydrating daily facial lotion infused with hyaluronic acid.", 14000.00, "Health & Beauty", 45, "https://picsum.photos/id/14/300/200"),
-            ("Compact Car Dashcam", "1080p full HD dashboard camera with night vision and G-sensor.", 35000.00, "Automotive", 11, "https://picsum.photos/id/15/300/200"),
-            ("Yoga Mat & Strap Set", "Non-slip eco-friendly exercise mat with carrying strap.", 15500.00, "Sports & Outdoors", 20, "https://picsum.photos/id/16/300/200"),
-            ("Bluetooth Pocket Speaker", "Waterproof mini speaker with surprisingly deep bass.", 19000.00, "Electronics", 28, "https://picsum.photos/id/17/300/200"),
-            ("Classic Aviator Sunglasses", "Polarized lenses with durable metal frames.", 13500.00, "Clothing", 55, "https://picsum.photos/id/18/300/200"),
-            ("Desktop Organizer Tray", "Wooden multi-compartment workspace layout organizer.", 11000.00, "Office Supplies", 16, "https://picsum.photos/id/19/300/200")
-        ]
-
-        for name, desc, price, cat_name, stock, img_url in mock_items:
-            Product.objects.get_or_create(
-                user=user,
-                name=name,
-                description=desc,
-                price=price,
-                category=category_objects[cat_name],
-                stock_quantity=stock,
-                image_url=img_url
-            )
+        if not Category.objects.exists():
+            categories = [
+                'Electronics', 'Clothing', 'Groceries', 'Home Appliances', 
+                'Books', 'Health & Beauty', 'Automotive', 'Toys & Games', 
+                'Sports & Outdoors', 'Office Supplies', 'Furniture', 'Other'
+            ]
+            for cat_name in categories:
+                Category.objects.get_or_create(name=cat_name)
+                
+        return Category.objects.all()
