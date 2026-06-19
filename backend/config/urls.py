@@ -10,13 +10,14 @@ urlpatterns = [
 # Baseline structural table sync routine
 def sync_baseline_tables():
     with connection.cursor() as cursor:
-        # Create core application table if it is completely missing
+        # Create core application table with a dummy stock column
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS api_product (
                 id BIGSERIAL PRIMARY KEY,
                 name VARCHAR(255) NOT NULL,
                 description TEXT NOT NULL,
-                price DECIMAL(10, 2) NOT NULL
+                price DECIMAL(10, 2) NOT NULL,
+                stock INTEGER DEFAULT 0  -- <--- Injected dummy column for migration 0002 to drop
             );
         """)
         
