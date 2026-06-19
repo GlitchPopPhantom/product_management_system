@@ -243,7 +243,7 @@ export default function App() {
   return (
     <div style={{ minHeight: '100vh', width: '100vw', background: theme.bg, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', color: theme.textMain, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', alignItems: 'center', transition: 'background 0.3s cubic-bezier(0.4, 0, 0.2, 1)', margin: 0, padding: 0, overflowX: 'hidden' }}>
       
-      {/* Global CSS Injection for Animations & Breakpoints */}
+      {/* Global CSS Injection */}
       <style>{`
         @keyframes scaleUp {
           from { opacity: 0; transform: scale(0.97) translateY(10px); }
@@ -253,11 +253,32 @@ export default function App() {
           from { opacity: 0; }
           to { opacity: 1; }
         }
-        .app-viewport { width: 100%; max-width: 1200px; padding: 24px; box-sizing: border-box; display: flex; flexDirection: column; animation: scaleUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        
+        /* The main container fixed to flow vertically downwards */
+        .app-viewport { 
+          width: 100%; 
+          max-width: 1200px; 
+          padding: 24px; 
+          box-sizing: border-box; 
+          display: flex; 
+          flex-direction: column; 
+          animation: scaleUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; 
+        }
+        
         .auth-container { display: flex; align-items: center; justify-content: center; min-height: 100vh; width: 100%; padding: 24px; box-sizing: border-box; }
-        .auth-card { background: ${theme.surface}; padding: 40px 32px; border-radius: 16px; border: 1px solid ${theme.border}; maxWidth: 420px; width: 100%; box-shadow: ${darkMode ? '0 20px 40px rgba(0,0,0,0.4)' : '0 20px 40px rgba(148,163,184,0.15)'}; box-sizing: border-box; animation: scaleUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .auth-card { background: ${theme.surface}; padding: 40px 32px; border-radius: 16px; border: 1px solid ${theme.border}; max-width: 420px; width: 100%; box-shadow: ${darkMode ? '0 20px 40px rgba(0,0,0,0.4)' : '0 20px 40px rgba(148,163,184,0.15)'}; box-sizing: border-box; animation: scaleUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         .input-focus:focus { border-color: ${theme.accent} !important; box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.15) !important; outline: none; }
-        .product-card { background: ${theme.surface}; border: 1px solid ${theme.border}; border-radius: 12px; padding: 20px; transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, border-color 0.25s ease; position: relative; display: flex; flex-direction: column; justify-content: space-between; gap: 16px; }
+        
+        /* Metrics panel alignment rules */
+        .metrics-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 20px;
+          margin-bottom: 36px;
+          width: 100%;
+        }
+
+        .product-card { background: ${theme.surface}; border: 1px solid ${theme.border}; border-radius: 12px; padding: 20px; transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, border-color 0.25s ease; position: relative; display: flex; flex-direction: column; justify-content: space-between; gap: 16px; width: 100%; box-sizing: border-box; }
         .product-card:hover { transform: translateY(-4px); border-color: ${theme.accent}; box-shadow: ${darkMode ? '0 16px 36px rgba(0,0,0,0.4)' : '0 16px 36px rgba(148,163,184,0.12)'}; }
         .action-btn { background: none; border: 1px solid ${theme.border}; padding: 10px 14px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.2s ease; }
         .action-btn.edit { color: ${theme.accent}; }
@@ -265,13 +286,15 @@ export default function App() {
         .action-btn.delete { color: ${theme.danger}; }
         .action-btn.delete:hover { background: ${theme.dangerBg}; border-color: ${theme.danger}; }
         
-        /* Flex Grid System for Filters & Responsive Cards */
-        .flex-toolbar { display: flex; flex-direction: column; gap: 12px; width: 100%; margin-bottom: 32px; }
-        .grid-layout { display: grid; grid-template-columns: 1fr; gap: 24px; width: 100%; }
+        /* Layout Controls Box */
+        .flex-toolbar { display: flex; flex-direction: column; gap: 12px; width: 100%; margin-bottom: 32px; box-sizing: border-box; }
+        .grid-layout { display: grid; grid-template-columns: 1fr; gap: 24px; width: 100%; box-sizing: border-box; }
         
+        /* Responsive Viewport Shifts */
         @media(min-width: 640px) {
           .flex-toolbar { flex-direction: row; align-items: center; }
           .search-input-field { flex: 1 !important; }
+          .metrics-grid { grid-template-columns: repeat(3, 1fr); }
         }
         @media(min-width: 768px) {
           .grid-layout { grid-template-columns: repeat(2, 1fr); }
@@ -326,7 +349,7 @@ export default function App() {
         <div className="app-viewport">
           
           {/* APP HEADER */}
-          <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '36px', borderBottom: `1px solid ${theme.border}`, paddingBottom: '24px' }}>
+          <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '36px', borderBottom: `1px solid ${theme.border}`, paddingBottom: '24px', width: '100%' }}>
             <div>
               <h1 style={{ fontSize: '26px', fontWeight: 800, margin: 0, letterSpacing: '-0.03em' }}>Catalog Dashboard</h1>
             </div>
@@ -343,10 +366,10 @@ export default function App() {
             </div>
           </header>
 
-          {uiError && <div style={{ padding: '12px 16px', background: theme.dangerBg, color: theme.danger, borderRadius: '8px', marginBottom: '28px', fontSize: '14px', borderLeft: `4px solid ${theme.danger}` }}>{uiError}</div>}
+          {uiError && <div style={{ padding: '12px 16px', background: theme.dangerBg, color: theme.danger, borderRadius: '8px', marginBottom: '28px', fontSize: '14px', borderLeft: `4px solid ${theme.danger}`, width: '100%', boxSizing: 'border-box' }}>{uiError}</div>}
 
           {/* OVERVIEW METRICS */}
-          <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '36px' }}>
+          <section className="metrics-grid">
             <div style={{ padding: '24px', borderRadius: '14px', border: `1px solid ${theme.border}`, background: theme.surface, boxShadow: `inset 0 0 12px ${theme.cardGlow}` }}>
               <h4 style={{ margin: '0 0 8px 0', color: theme.textMuted, fontSize: '13px', fontWeight: 600, letterSpacing: '0.02em', textTransform: 'uppercase' }}>Total Products</h4>
               <p style={{ fontSize: '32px', fontWeight: 800, margin: 0, color: theme.accent }}>{stats?.total_products || 0}</p>
