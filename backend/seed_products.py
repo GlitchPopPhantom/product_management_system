@@ -1,6 +1,5 @@
 import os
 import django
-import random
 
 # Setup Django environment
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
@@ -10,8 +9,8 @@ from django.contrib.auth.models import User
 from api.models import Product, Category
 
 def seed_data():
-    # Fetch or create a default user to own the items
-    user, _ = User.get_or_create(username='demo_user')
+    # FIXED: Added the missing .objects manager attribute here
+    user, _ = User.objects.get_or_create(username='demo_user')
     if _:
         user.set_password('password123')
         user.save()
@@ -40,7 +39,7 @@ def seed_data():
         ("Organic Green Tea", "Premium loose-leaf green tea sourced from organic estates.", 4500.00, "Groceries", 100, "https://picsum.photos/id/7/300/200"),
         ("Portable Power Bank", "20000mAh external battery pack with fast charging capabilities.", 22000.00, "Electronics", 40, "https://picsum.photos/id/8/300/200"),
         ("Dimmable Desk Lamp", "LED desk lamp with 5 color modes and a built-in USB charging port.", 16500.00, "Office Supplies", 18, "https://picsum.photos/id/9/300/200"),
-        ("Running Running Shoes", "Lightweight, breathable athletic footwear for daily training.", 32000.00, "Clothing", 25, "https://picsum.photos/id/10/300/200"),
+        ("Running Shoes", "Lightweight, breathable athletic footwear for daily training.", 32000.00, "Clothing", 25, "https://picsum.photos/id/10/300/200"),
         ("Professional Chef's Knife", "8-inch high-carbon stainless steel forged kitchen knife.", 28000.00, "Home Appliances", 10, "https://picsum.photos/id/11/300/200"),
         ("Wireless Gaming Mouse", "Ultra-lightweight gaming mouse with high-precision optical sensor.", 24000.00, "Electronics", 35, "https://picsum.photos/id/12/300/200"),
         ("Hardcover Sci-Fi Novel", "An epic space opera journey through uncharted solar systems.", 6500.00, "Books", 60, "https://picsum.photos/id/13/300/200"),
@@ -53,15 +52,14 @@ def seed_data():
     ]
 
     for name, desc, price, cat_name, stock, img_url in mock_items:
-        # Assuming your model fields match these names
         Product.objects.get_or_create(
             user=user,
             name=name,
             description=desc,
             price=price,
             category=category_objects[cat_name],
-            stock_quantity=stock, # Adjusted based on your column request
-            image_url=img_url      # Adjusted based on your column request
+            stock_quantity=stock,
+            image_url=img_url
         )
     print("Successfully seeded 20 products.")
 
