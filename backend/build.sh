@@ -2,4 +2,6 @@
 set -o errexit
 
 pip install -r requirements.txt
-DATABASE_URL="postgres://dummy:dummy@localhost:5432/dummy" python manage.py collectstatic --no-input
+python manage.py makemigrations --no-input
+python manage.py migrate --no-input
+python manage.py collectstatic --no-input
