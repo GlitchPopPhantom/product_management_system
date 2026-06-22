@@ -1,6 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Expo automatically bakes keys starting with EXPO_PUBLIC_ straight into the web build
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 
