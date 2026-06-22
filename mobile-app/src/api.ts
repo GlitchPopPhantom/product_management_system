@@ -1,19 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
-import Constants from 'expo-constants';
 
-// Safely attempts to read keys from Expo's config object first, falling back to process.env
-const SUPABASE_URL = 
-  Constants.expoConfig?.extra?.supabaseUrl || 
-  process.env.EXPO_PUBLIC_SUPABASE_URL || 
-  '';
-
-const SUPABASE_ANON_KEY = 
-  Constants.expoConfig?.extra?.supabaseAnonKey || 
-  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 
-  '';
+// Expo automatically bakes keys starting with EXPO_PUBLIC_ straight into the web build
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  console.warn("Supabase credentials missing! Check your environment configuration.");
+  console.warn("Supabase credentials missing! Check your Vercel environment variables.");
 }
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -41,7 +33,6 @@ export interface DashboardStats {
 }
 
 export const api = {
-  // Fetches products with uppercase table mapping and search/sort queries
   async getProducts(search: string, selectedCategory: string, sortBy: string): Promise<Product[]> {
     let query = supabase.from('Products').select('*');
 
@@ -68,7 +59,6 @@ export const api = {
     return data || [];
   },
 
-  // Fetches categories from uppercase table
   async getCategories(): Promise<Category[]> {
     const { data, error } = await supabase
       .from('Categories')
@@ -79,7 +69,6 @@ export const api = {
     return data || [];
   },
 
-  // Generates analytics metrics from upper-cased database tables
   async getStats(): Promise<DashboardStats> {
     const [productsRes, categoriesRes] = await Promise.all([
       supabase.from('Products').select('price, stock_quantity'),
