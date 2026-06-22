@@ -10,21 +10,21 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// TypeScript Interfaces matching your lowercase id column
+// All TypeScript interfaces updated to snake_case
 export interface Product {
-  id: number;                           // CHANGED TO LOWERCASE
-  "Product Name": string;               
-  Description: string | null;           
-  Price: number;                        
-  Category_id: number;                  
-  "Stock Quantity": number;             
-  "Product Image URL": string | null;   
-  created_at?: string;                  
+  id: number;
+  product_name: string;
+  description: string | null;
+  price: number;
+  category_id: number;
+  stock_quantity: number;
+  product_image_url: string | null;
+  created_at?: string;
 }
 
 export interface Category {
-  Category_id: number;                  
-  Category_Name: string;                
+  category_id: number;
+  category_name: string;
 }
 
 export interface DashboardStats {
@@ -39,22 +39,22 @@ export const api = {
     let query = supabase.from('Products').select('*');
 
     if (search && search.trim()) {
-      query = query.ilike('Product Name', `%${search.trim()}%`);
+      query = query.ilike('product_name', `%${search.trim()}%`);
     }
 
     if (selectedCategory) {
-      query = query.eq('Category_id', parseInt(selectedCategory));
+      query = query.eq('category_id', parseInt(selectedCategory));
     }
 
-    // Sorting conditions using lowercase id
+    // Sorting conditions updated to lowercase_with_underscore identifiers
     if (sortBy === 'price_asc') {
-      query = query.order('Price', { ascending: true });
+      query = query.order('price', { ascending: true });
     } else if (sortBy === 'price_desc') {
-      query = query.order('Price', { ascending: false });
+      query = query.order('price', { ascending: false });
     } else if (sortBy === 'name_asc') {
-      query = query.order('Product Name', { ascending: true });
+      query = query.order('product_name', { ascending: true });
     } else {
-      query = query.order('id', { ascending: true }); // CHANGED TO LOWERCASE
+      query = query.order('id', { ascending: true });
     }
 
     const { data, error } = await query;
@@ -66,18 +66,18 @@ export const api = {
   async getCategories(): Promise<Category[]> {
     const { data, error } = await supabase
       .from('Categories')
-      .select('Category_id, Category_Name')
-      .order('Category_id', { ascending: true });
+      .select('category_id, category_name')
+      .order('category_id', { ascending: true });
 
     if (error) throw error;
     return data || [];
   },
 
-  // Calculates totals and net values directly using the correct database keys
+  // Calculates dashboard aggregates using snake_case properties
   async getStats(): Promise<DashboardStats> {
     const [productsRes, categoriesRes] = await Promise.all([
-      supabase.from('Products').select('Price, Stock Quantity'),
-      supabase.from('Categories').select('Category_id', { count: 'exact', head: true })
+      supabase.from('Products').select('price, stock_quantity'),
+      supabase.from('Categories').select('category_id', { count: 'exact', head: true })
     ]);
 
     if (productsRes.error) throw productsRes.error;
@@ -86,9 +86,9 @@ export const api = {
     const products = productsRes.data || [];
     
     const estimatedNetValue = products.reduce((sum, item) => {
-      const price = item.Price || 0;
-      const qty = item['Stock Quantity'] || 0;
-      return sum + (price * qty);
+      const p = item.price || 0;
+      const q = item.stock_quantity || 0;
+      return sum + (p * q);
     }, 0);
 
     return {
@@ -107,22 +107,22 @@ export const api = {
     if (error) throw error;
   },
 
-  // Updates an item targeting the lowercase primary key 'id'
+  // Updates an item matching via the lowercase 'id' column
   async updateProduct(id: number, payload: Partial<Product>): Promise<void> {
     const { error } = await supabase
       .from('Products')
       .update(payload)
-      .eq('id', id); // CHANGED TO LOWERCASE
+      .eq('id', id);
 
     if (error) throw error;
   },
 
-  // Deletes an item targeting the lowercase primary key 'id'
+  // Deletes an item matching via the lowercase 'id' column
   async deleteProduct(id: number): Promise<void> {
     const { error } = await supabase
       .from('Products')
       .delete()
-      .eq('id', id); // CHANGED TO LOWERCASE
+      .eq('id', id);
 
     if (error) throw error;
   }
