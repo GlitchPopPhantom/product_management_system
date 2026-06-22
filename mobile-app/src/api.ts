@@ -1,14 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
+import Constants from 'expo-constants';
 
-// Read using Expo's public environment variable prefix
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
-const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+// Pulls directly from the Expo manifest context instead of raw process.env
+const SUPABASE_URL = Constants.expoConfig?.extra?.supabaseUrl || process.env.EXPO_PUBLIC_SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = Constants.expoConfig?.extra?.supabaseAnonKey || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.warn("Supabase credentials missing! Check your environment configuration.");
 }
-
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // All TypeScript interfaces updated to snake_case
 export interface Product {
