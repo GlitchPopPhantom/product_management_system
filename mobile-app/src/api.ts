@@ -1,9 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
 
-// Pulls directly from the Expo manifest context instead of raw process.env
-const SUPABASE_URL = Constants.expoConfig?.extra?.supabaseUrl || process.env.EXPO_PUBLIC_SUPABASE_URL || '';
-const SUPABASE_ANON_KEY = Constants.expoConfig?.extra?.supabaseAnonKey || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+// Safely attempts to read keys from Expo's config object first, falling back to process.env
+const SUPABASE_URL = 
+  Constants.expoConfig?.extra?.supabaseUrl || 
+  process.env.EXPO_PUBLIC_SUPABASE_URL || 
+  '';
+
+const SUPABASE_ANON_KEY = 
+  Constants.expoConfig?.extra?.supabaseAnonKey || 
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 
+  '';
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.warn("Supabase credentials missing! Check your environment configuration.");
@@ -11,7 +18,6 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// All TypeScript interfaces updated to snake_case
 export interface Product {
   id: number;
   product_name: string;
@@ -35,7 +41,7 @@ export interface DashboardStats {
 }
 
 export const api = {
-  // Fetches products with search filtering, category filtering, and sorting
+  // Fetches products with uppercase table mapping and search/sort queries
   async getProducts(search: string, selectedCategory: string, sortBy: string): Promise<Product[]> {
     let query = supabase.from('Products').select('*');
 
@@ -47,7 +53,6 @@ export const api = {
       query = query.eq('category_id', parseInt(selectedCategory));
     }
 
-    // Sorting conditions updated to lowercase_with_underscore identifiers
     if (sortBy === 'price_asc') {
       query = query.order('price', { ascending: true });
     } else if (sortBy === 'price_desc') {
@@ -63,7 +68,7 @@ export const api = {
     return data || [];
   },
 
-  // Fetches categories sorted by their primary key ID
+  // Fetches categories from uppercase table
   async getCategories(): Promise<Category[]> {
     const { data, error } = await supabase
       .from('Categories')
@@ -74,7 +79,7 @@ export const api = {
     return data || [];
   },
 
-  // Calculates dashboard aggregates using snake_case properties
+  // Generates analytics metrics from upper-cased database tables
   async getStats(): Promise<DashboardStats> {
     const [productsRes, categoriesRes] = await Promise.all([
       supabase.from('Products').select('price, stock_quantity'),
@@ -99,7 +104,6 @@ export const api = {
     };
   },
 
-  // Adds a new item to the Products table
   async createProduct(payload: Partial<Product>): Promise<void> {
     const { error } = await supabase
       .from('Products')
@@ -108,7 +112,6 @@ export const api = {
     if (error) throw error;
   },
 
-  // Updates an item matching via the lowercase 'id' column
   async updateProduct(id: number, payload: Partial<Product>): Promise<void> {
     const { error } = await supabase
       .from('Products')
@@ -118,7 +121,6 @@ export const api = {
     if (error) throw error;
   },
 
-  // Deletes an item matching via the lowercase 'id' column
   async deleteProduct(id: number): Promise<void> {
     const { error } = await supabase
       .from('Products')
