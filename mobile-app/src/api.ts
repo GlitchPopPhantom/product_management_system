@@ -1,11 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Initialize your Supabase client config (Ensure your process env or config matches)
-const SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL || '';
-const SUPABASE_ANON_KEY = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '';
+// Read using Expo's public environment variable prefix
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.warn("Supabase credentials missing! Check your environment configuration.");
+}
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// ... keep the rest of your api object methods (getProducts, getCategories, etc.) exactly the same
 // 1. Interfaces exactly matching your database screenshots
 export interface Product {
   Id: number;                  // Matches 'Id' (capital I) from screenshot
