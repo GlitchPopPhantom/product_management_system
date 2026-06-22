@@ -63,6 +63,36 @@ export const api = {
     };
   },
 
+  // Add these inside your existing export const api = { ... } object:
+
+  signUp: async (email: string, password: string) => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+    if (error) throw error;
+    return data;
+  },
+
+  signIn: async (email: string, password: string) => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    if (error) throw error;
+    return data;
+  },
+
+  signOut: async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
+  },
+
+  getCurrentUser: async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    return user;
+  }
+
   // 2. Get array of categories from the Categories table
   getCategories: async (): Promise<Category[]> => {
     const { data, error } = await supabase
