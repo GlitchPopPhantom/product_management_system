@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
-// 1. Initialize the Supabase Client gatekeeper using Vercel environment variables
+// 1. Initialize the Supabase Client using Vercel environment variables
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -10,14 +10,15 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient(supabaseUrl!, supabaseAnonKey!);
 
-// Define internal typescript mappings for safety
+// Match the exact columns from your Categories schema image
 export interface Category {
-  id: number;
-  name: string;
+  Category_id: number;
+  Category_Name: string;
 }
 
+// Match the exact columns from your Products schema image
 export interface Product {
-  Id: number; // Matches the capital 'I' from your Supabase schema image
+  Id: number; 
   "Product Name": string;
   Description: string;
   Price: number;
@@ -36,10 +37,10 @@ export interface DashboardStats {
 export const api = {
   // 1. Calculate dashboard metrics on-the-fly from live Supabase data
   getStats: async (): Promise<DashboardStats> => {
-    // Fetch products and categories concurrently
+    // Select the primary key 'Category_id' instead of 'id' to query safely
     const [productsRes, categoriesRes] = await Promise.all([
       supabase.from('Products').select('Price, Stock Quantity'),
-      supabase.from('Categories').select('id', { count: 'exact', head: true })
+      supabase.from('Categories').select('Category_id', { count: 'exact', head: true })
     ]);
 
     if (productsRes.error) throw new Error(productsRes.error.message);
@@ -62,8 +63,6 @@ export const api = {
       estimatedNetValue
     };
   },
-
-  // Add these inside your existing export const api = { ... } object:
 
   signUp: async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signUp({
@@ -93,12 +92,12 @@ export const api = {
     return user;
   },
 
-  // 2. Get array of categories from the Categories table
+  // 2. Get array of categories using 'Category_id' ordering
   getCategories: async (): Promise<Category[]> => {
     const { data, error } = await supabase
       .from('Categories')
       .select('*')
-      .order('id', { ascending: true });
+      .order('Category_id', { ascending: true });
 
     if (error) throw new Error(error.message);
     return data || [];
@@ -108,7 +107,7 @@ export const api = {
   getProducts: async (search?: string, category?: string, sort?: string): Promise<Product[]> => {
     let query = supabase.from('Products').select('*');
 
-    // Filter by category_id if provided
+    // Filter by Category_id matching your table naming convention
     if (category && category !== 'all') {
       query = query.eq('Category_id', parseInt(category));
     }
@@ -127,7 +126,7 @@ export const api = {
       } else if (sort === 'name_asc') {
         query = query.order('Product Name', { ascending: true });
       } else {
-        query = query.order('Id', { ascending: true }); // Default order
+        query = query.order('Id', { ascending: true }); 
       }
     } else {
       query = query.order('Id', { ascending: true });
