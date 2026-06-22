@@ -1,31 +1,26 @@
 import { createClient } from '@supabase/supabase-js';
 
-// 1. Initialize the Supabase Client using Vercel environment variables
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+// Initialize your Supabase client config (Ensure your process env or config matches)
+const SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '';
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error("Missing Supabase environment variables in Vercel configuration!");
-}
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-export const supabase = createClient(supabaseUrl!, supabaseAnonKey!);
-
-// Match the exact columns from your Categories schema image
-export interface Category {
-  Category_id: number;
-  Category_Name: string;
-}
-
-// Match the exact columns from your Products schema image
+// 1. Interfaces exactly matching your database screenshots
 export interface Product {
-  Id: number; 
-  "Product Name": string;
-  Description: string;
-  Price: number;
-  Category_id: number;
-  "Stock Quantity": number;
-  "Product Image URL": string;
-  created_at: string;
+  Id: number;                  // Matches 'Id' (capital I) from screenshot
+  "Product Name": string;      // Matches 'Product Name'
+  Description: string | null;  // Matches 'Description'
+  Price: number;               // Matches 'Price'
+  Category_id: number;         // Matches 'Category_id'
+  "Stock Quantity": number;    // Matches 'Stock Quantity'
+  "Product Image URL": string | null; // Matches 'Product Image URL'
+  created_at?: string;         // Matches 'created_at'
+}
+
+export interface Category {
+  Category_id: number;         // Matches 'Category_id' from screenshot
+  Category_Name: string;       // Matches 'Category_Name' from screenshot
 }
 
 export interface DashboardStats {
@@ -34,27 +29,69 @@ export interface DashboardStats {
   estimatedNetValue: number;
 }
 
+// 2. Clear API functions matching case-sensitive columns
 export const api = {
-  // 1. Calculate dashboard metrics on-the-fly from live Supabase data
-  getStats: async (): Promise<DashboardStats> => {
-    // Select the primary key 'Category_id' instead of 'id' to query safely
+  // Fetches products with search text filtering, category mapping, and ordering keys
+  async getProducts(search: string, selectedCategory: string, sortBy: string): Promise<Product[]> {
+    let query = supabase.from('Products').select('*');
+
+    // Filter by text search matching Product Name if provided
+    if (search.trim()) {
+      query = query.ilike('Product Name', `%${search.trim()}%`);
+    }
+
+    // Filter by exact Category ID match if selected
+    if (selectedCategory) {
+      query = query.eq('Category_id', parseInt(selectedCategory));
+    }
+
+    // Apply sorting logic cleanly using the passed variable
+    if (sortBy === 'price_asc') {
+      query = query.order('Price', { ascending: true });
+    } else if (sortBy === 'price_desc') {
+      query = query.order('Price', { ascending: false });
+    } else if (sortBy === 'name_asc') {
+      query = query.order('Product Name', { ascending: true });
+    } else {
+      // Default fallback ordering matches database Primary Key 'Id'
+      query = query.order('Id', { ascending: true });
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
+  },
+
+  // Fetches category names and ids with correct capitalization mappings
+  async getCategories(): Promise<Category[]> {
+    const { data, error } = await supabase
+      .from('Categories')
+      .select('Category_id, Category_Name')
+      .order('Category_id', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  // Aggregates dashboard operational stats dynamically from server queries
+  async getStats(): Promise<DashboardStats> {
     const [productsRes, categoriesRes] = await Promise.all([
       supabase.from('Products').select('Price, Stock Quantity'),
       supabase.from('Categories').select('Category_id', { count: 'exact', head: true })
     ]);
 
-    if (productsRes.error) throw new Error(productsRes.error.message);
-    if (categoriesRes.error) throw new Error(categoriesRes.error.message);
+    if (productsRes.error) throw productsRes.error;
+    if (categoriesRes.error) throw categoriesRes.error;
 
     const products = productsRes.data || [];
     const totalProducts = products.length;
     const categoriesAvailable = categoriesRes.count || 0;
 
-    // Calculate Estimated Net Value: Sum of (Price * Stock Quantity)
-    const estimatedNetValue = products.reduce((sum, item) => {
-      const price = item['Price'] || 0;
-      const stock = item['Stock Quantity'] || 0;
-      return sum + (price * stock);
+    // Calculate sum aggregation dynamically: Price * Quantity
+    const estimatedNetValue = products.reduce((acc, curr) => {
+      const price = curr.Price || 0;
+      const qty = curr["Stock Quantity"] || 0;
+      return acc + (price * qty);
     }, 0);
 
     return {
@@ -64,104 +101,32 @@ export const api = {
     };
   },
 
-  signUp: async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
-    if (error) throw error;
-    return data;
-  },
+  // Inserts a new row mapping straight to your explicit column identifiers
+  async createProduct(payload: Partial<Product>): Promise<void> {
+    const { error } = await supabase
+      .from('Products')
+      .insert([payload]);
 
-  signIn: async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (error) throw error;
-    return data;
-  },
-
-  signOut: async () => {
-    const { error } = await supabase.auth.signOut();
     if (error) throw error;
   },
 
-  getCurrentUser: async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    return user;
-  },
-
-  // 2. Get array of categories using 'Category_id' ordering
-  getCategories: async (): Promise<Category[]> => {
-    const { data, error } = await supabase
-      .from('Categories')
-      .select('Category_id, Category_Name')
-      .order('Category_id', { ascending: true });
-
-    if (error) throw new Error(error.message);
-    return data || [];
-  },
-
-  // 3. Fetch products with support for searching, category filtering, and ordering pipelines
-  getProducts: async (search?: string, category?: string, sort?: string): Promise<Product[]> => {
-    let query = supabase
+  // Updates specific product metrics matching via the Primary Key row selector
+  async updateProduct(id: number, payload: Partial<Product>): Promise<void> {
+    const { error } = await supabase
       .from('Products')
-      .select('*');
+      .update(payload)
+      .eq('Id', id); // Must be capital 'Id'
 
-    // Filter by Category_id matching your table naming convention
-    if (category && category !== 'all') {
-      query = query.eq('Category_id', parseInt(category));
-    }
-
-    // Text search against product names
-    if (search) {
-      query = query.ilike('Product Name', `%${search}%`);
-    }
-
-    if (sortBy === 'price_asc') query = query.order('Price', { ascending: true });
-    if (sortBy === 'price_desc') query = query.order('Price', { ascending: false });
-    if (sortBy === 'name_asc') query = query.order('Product Name', { ascending: true });
-    // If your default order uses ID, make sure it is capitalized:
-    if (!sortBy) query = query.order('Id', { ascending: true });
-
-    const { data, error } = await query;
-    if (error) throw new Error(error.message);
-    return (data as Product[]) || [];
+    if (error) throw error;
   },
 
-  // 4. Create new product entry in the database
-  createProduct: async (data: Partial<Product>): Promise<Product> => {
-    const { data: newProduct, error } = await supabase
-      .from('Products')
-      .insert([data])
-      .select()
-      .single();
-
-    if (error) throw new Error(error.message);
-    return newProduct;
-  },
-
-  // 5. Update an existing product settings row
-  updateProduct: async (id: number, data: Partial<Product>): Promise<Product> => {
-    const { data: updatedProduct, error } = await supabase
-      .from('Products')
-      .update(data)
-      .eq('Id', id)
-      .select()
-      .single();
-
-    if (error) throw new Error(error.message);
-    return updatedProduct;
-  },
-
-  // 6. Delete product execution
-  deleteProduct: async (id: number): Promise<void> => {
+  // Drops target product catalog rows directly from the table database
+  async deleteProduct(id: number): Promise<void> {
     const { error } = await supabase
       .from('Products')
       .delete()
-      .eq('Id', id);
+      .eq('Id', id); // Must be capital 'Id'
 
-    if (error) throw new Error(error.message);
+    if (error) throw error;
   }
 };
