@@ -10,7 +10,6 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// ... keep the rest of your api object methods (getProducts, getCategories, etc.) exactly the same
 // 1. Interfaces exactly matching your database screenshots
 export interface Product {
   Id: number;                  // Matches 'Id' (capital I) from screenshot
