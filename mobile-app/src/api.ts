@@ -1,68 +1,145 @@
-const BASE_URL = 'https://task-master-6ou2.onrender.com/api';
+import { createClient } from '@supabase/supabase-js';
 
-const getHeaders = () => {
-  const token = localStorage.getItem('token');
-  return {
-    'Content-Type': 'application/json',
-    ...(token ? { 'Authorization': `Token ${token}` } : {}),
-  };
-};
+// 1. Initialize the Supabase Client gatekeeper using Vercel environment variables
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error("Missing Supabase environment variables in Vercel configuration!");
+}
+
+export const supabase = createClient(supabaseUrl!, supabaseAnonKey!);
+
+// Define internal typescript mappings for safety
+export interface Category {
+  id: number;
+  name: string;
+}
+
+export interface Product {
+  Id: number; // Matches the capital 'I' from your Supabase schema image
+  "Product Name": string;
+  Description: string;
+  Price: number;
+  Category_id: number;
+  "Stock Quantity": number;
+  "Product Image URL": string;
+  created_at: string;
+}
+
+export interface DashboardStats {
+  totalProducts: number;
+  categoriesAvailable: number;
+  estimatedNetValue: number;
+}
 
 export const api = {
-  // Get dashboard metrics card metrics
+  // 1. Calculate dashboard metrics on-the-fly from live Supabase data
   getStats: async (): Promise<DashboardStats> => {
-    const res = await fetch(`${BASE_URL}/dashboard-stats/`, { headers: getHeaders() });
-    if (!res.ok) throw new Error('Failed to load dashboard metrics');
-    return res.json();
+    // Fetch products and categories concurrently
+    const [productsRes, categoriesRes] = await Promise.all([
+      supabase.from('Products').select('Price, Stock Quantity'),
+      supabase.from('Categories').select('id', { count: 'exact', head: true })
+    ]);
+
+    if (productsRes.error) throw new Error(productsRes.error.message);
+    if (categoriesRes.error) throw new Error(categoriesRes.error.message);
+
+    const products = productsRes.data || [];
+    const totalProducts = products.length;
+    const categoriesAvailable = categoriesRes.count || 0;
+
+    // Calculate Estimated Net Value: Sum of (Price * Stock Quantity)
+    const estimatedNetValue = products.reduce((sum, item) => {
+      const price = item['Price'] || 0;
+      const stock = item['Stock Quantity'] || 0;
+      return sum + (price * stock);
+    }, 0);
+
+    return {
+      totalProducts,
+      categoriesAvailable,
+      estimatedNetValue
+    };
   },
 
-  // Get categorized array of categories
+  // 2. Get array of categories from the Categories table
   getCategories: async (): Promise<Category[]> => {
-    const res = await fetch(`${BASE_URL}/categories/`, { headers: getHeaders() });
-    if (!res.ok) throw new Error('Failed to load categories');
-    return res.json();
+    const { data, error } = await supabase
+      .from('Categories')
+      .select('*')
+      .order('id', { ascending: true });
+
+    if (error) throw new Error(error.message);
+    return data || [];
   },
 
-  // Fetch products with support for native searching, filtering, and ordering pipelines
+  // 3. Fetch products with support for searching, category filtering, and ordering pipelines
   getProducts: async (search?: string, category?: string, sort?: string): Promise<Product[]> => {
-    const params = new URLSearchParams();
-    if (search) params.append('search', search);
-    if (category) params.append('category', category);
-    if (sort) params.append('ordering', sort); // Maps to views.py ordering_fields
+    let query = supabase.from('Products').select('*');
 
-    const res = await fetch(`${BASE_URL}/products/?${params.toString()}`, { headers: getHeaders() });
-    if (!res.ok) throw new Error('Failed to fetch product inventory');
-    return res.json();
-  },
-
-  createProduct: async (data: Partial<Product>): Promise<Product> => {
-    const res = await fetch(`${BASE_URL}/products/`, {
-      method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) {
-      const errData = await res.json();
-      throw new Error(errData.error || 'Validation error while saving product');
+    // Filter by category_id if provided
+    if (category && category !== 'all') {
+      query = query.eq('Category_id', parseInt(category));
     }
-    return res.json();
+
+    // Text search against product names
+    if (search) {
+      query = query.ilike('Product Name', `%${search}%`);
+    }
+
+    // Handle ordering pipelines
+    if (sort) {
+      if (sort === 'price_asc') {
+        query = query.order('Price', { ascending: true });
+      } else if (sort === 'price_desc') {
+        query = query.order('Price', { ascending: false });
+      } else if (sort === 'name_asc') {
+        query = query.order('Product Name', { ascending: true });
+      } else {
+        query = query.order('Id', { ascending: true }); // Default order
+      }
+    } else {
+      query = query.order('Id', { ascending: true });
+    }
+
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    return (data as Product[]) || [];
   },
 
+  // 4. Create new product entry in the database
+  createProduct: async (data: Partial<Product>): Promise<Product> => {
+    const { data: newProduct, error } = await supabase
+      .from('Products')
+      .insert([data])
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    return newProduct;
+  },
+
+  // 5. Update an existing product settings row
   updateProduct: async (id: number, data: Partial<Product>): Promise<Product> => {
-    const res = await fetch(`${BASE_URL}/products/${id}/`, {
-      method: 'PUT',
-      headers: getHeaders(),
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) throw new Error('Failed to update product settings');
-    return res.json();
+    const { data: updatedProduct, error } = await supabase
+      .from('Products')
+      .update(data)
+      .eq('Id', id)
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    return updatedProduct;
   },
 
+  // 6. Delete product execution
   deleteProduct: async (id: number): Promise<void> => {
-    const res = await fetch(`${BASE_URL}/products/${id}/`, {
-      method: 'DELETE',
-      headers: getHeaders(),
-    });
-    if (!res.ok) throw new Error('Failed to delete product execution');
+    const { error } = await supabase
+      .from('Products')
+      .delete()
+      .eq('Id', id);
+
+    if (error) throw new Error(error.message);
   }
 };
