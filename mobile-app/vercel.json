@@ -1,6 +1,5 @@
 {
   "cleanUrls": true,
-  "public": true,
   "routes": [
     {
       "src": "/_expo/static/(.*)",
