@@ -96,7 +96,7 @@ export const api = {
   getCategories: async (): Promise<Category[]> => {
     const { data, error } = await supabase
       .from('Categories')
-      .select('*')
+      .select('Category_id, Category_Name')
       .order('Category_id', { ascending: true });
 
     if (error) throw new Error(error.message);
@@ -105,7 +105,9 @@ export const api = {
 
   // 3. Fetch products with support for searching, category filtering, and ordering pipelines
   getProducts: async (search?: string, category?: string, sort?: string): Promise<Product[]> => {
-    let query = supabase.from('Products').select('*');
+    let query = supabase
+      .from('Products')
+      .select('*');
 
     // Filter by Category_id matching your table naming convention
     if (category && category !== 'all') {
@@ -117,20 +119,11 @@ export const api = {
       query = query.ilike('Product Name', `%${search}%`);
     }
 
-    // Handle ordering pipelines
-    if (sort) {
-      if (sort === 'price_asc') {
-        query = query.order('Price', { ascending: true });
-      } else if (sort === 'price_desc') {
-        query = query.order('Price', { ascending: false });
-      } else if (sort === 'name_asc') {
-        query = query.order('Product Name', { ascending: true });
-      } else {
-        query = query.order('Id', { ascending: true }); 
-      }
-    } else {
-      query = query.order('Id', { ascending: true });
-    }
+    if (sortBy === 'price_asc') query = query.order('Price', { ascending: true });
+    if (sortBy === 'price_desc') query = query.order('Price', { ascending: false });
+    if (sortBy === 'name_asc') query = query.order('Product Name', { ascending: true });
+    // If your default order uses ID, make sure it is capitalized:
+    if (!sortBy) query = query.order('Id', { ascending: true });
 
     const { data, error } = await query;
     if (error) throw new Error(error.message);
