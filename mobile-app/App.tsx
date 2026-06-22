@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { api, supabase, Product, Category, DashboardStats } from './api';
+import { api, supabase, Product, Category, DashboardStats } from './src/api';
 
 export default function App() {
   const [token, setToken] = useState<string | null>(null);
