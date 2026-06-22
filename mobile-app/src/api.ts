@@ -91,7 +91,7 @@ export const api = {
   getCurrentUser: async () => {
     const { data: { user } } = await supabase.auth.getUser();
     return user;
-  }
+  },
 
   // 2. Get array of categories from the Categories table
   getCategories: async (): Promise<Category[]> => {
