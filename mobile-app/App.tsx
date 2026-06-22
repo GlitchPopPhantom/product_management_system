@@ -114,7 +114,7 @@ export default function App() {
       description: '', 
       price: '', 
       stock_quantity: 0, 
-      category_id: categories[0]?.id?.toString() || '', 
+      category_id: categories[0]?.Category_id?.toString() || '', // FIXED: Updated .id to .Category_id
       image_url: '' 
     });
     setUiError(null);
@@ -137,7 +137,7 @@ export default function App() {
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const finalCategory = formData.category_id || (categories.length > 0 ? categories[0].id.toString() : '');
+    const finalCategory = formData.category_id || (categories.length > 0 ? categories[0].Category_id.toString() : ''); // FIXED: Updated .id to .Category_id
 
     if (!formData.name.trim()) return setUiError('Product Name is required.');
     if (parseFloat(formData.price) <= 0 || isNaN(parseFloat(formData.price))) return setUiError('Price must be greater than ₦0.');
@@ -310,7 +310,8 @@ export default function App() {
             />
             <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} className="input-focus" style={{ padding: '12px 16px', background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: '8px', color: theme.textMain, fontSize: '14px', minWidth: '180px', transition: 'border-color 0.2s' }}>
               <option value="">All Categories</option>
-              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {/* FIXED: Updated loop mapping references below */}
+              {categories.map(c => <option key={c.Category_id} value={c.Category_id}>{c.Category_Name}</option>)}
             </select>
             <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="input-focus" style={{ padding: '12px 16px', background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: '8px', color: theme.textMain, fontSize: '14px', minWidth: '180px', transition: 'border-color 0.2s' }}>
               <option value="">Default Order</option>
@@ -405,7 +406,8 @@ export default function App() {
             <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px', fontWeight: 600, color: theme.textMuted }}>
               Category Classification *
               <select value={formData.category_id} onChange={(e) => setFormData({...formData, category_id: e.target.value})} className="input-focus" style={{ padding: '12px', background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: '8px', color: theme.textMain, fontSize: '14px', width: '100%', transition: 'all 0.2s' }}>
-                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                {/* FIXED: Updated loop mapping references below */}
+                {categories.map(c => <option key={c.Category_id} value={c.Category_id}>{c.Category_Name}</option>)}
               </select>
             </label>
 
