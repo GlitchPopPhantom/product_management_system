@@ -89,8 +89,8 @@ export default function Dashboard() {
         >
           <option value="">All Categories</option>
           {categories.map((cat) => (
-            <option key={cat.Category_id} value={cat.Category_id.toString()}>
-              {cat.Category_Name}
+            <option key={cat.category_id} value={cat.category_id.toString()}>
+              {cat.category_name}
             </option>
           ))}
         </select>
@@ -117,7 +117,7 @@ export default function Dashboard() {
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid #1f2937', color: '#9ca3af' }}>
-                  <th style={{ padding: '0.75rem' }}>Id</th>
+                  <th style={{ padding: '0.75rem' }}>id</th>
                   <th style={{ padding: '0.75rem' }}>Product Name</th>
                   <th style={{ padding: '0.75rem' }}>Price</th>
                   <th style={{ padding: '0.75rem' }}>Stock Quantity</th>
@@ -125,11 +125,11 @@ export default function Dashboard() {
               </thead>
               <tbody>
                 {products.map((product) => (
-                  <tr key={product.id} style={{ borderBottom: '1px solid #1f2937' }}> {/* CHANGED TO LOWERCASE */}
-                    <td style={{ padding: '0.75rem' }}>{product.id}</td> {/* CHANGED TO LOWERCASE */}
-                    <td style={{ padding: '0.75rem', fontWeight: 'bold' }}>{product["Product Name"]}</td>
-                    <td style={{ padding: '0.75rem', color: '#10b981' }}>₦{product.Price.toLocaleString()}</td>
-                    <td style={{ padding: '0.75rem' }}>{product["Stock Quantity"]}</td>
+                  <tr key={product.id} style={{ borderBottom: '1px solid #1f2937' }}>
+                    <td style={{ padding: '0.75rem' }}>{product.id}</td>
+                    <td style={{ padding: '0.75rem', fontWeight: 'bold' }}>{product.product_name}</td>
+                    <td style={{ padding: '0.75rem', color: '#10b981' }}>₦{product.price.toLocaleString()}</td>
+                    <td style={{ padding: '0.75rem' }}>{product.stock_quantity}</td>
                   </tr>
                 ))}
               </tbody>
