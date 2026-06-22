@@ -10,21 +10,21 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// TypeScript Interfaces matching your exact database schema layout
+// TypeScript Interfaces matching your lowercase id column
 export interface Product {
-  Id: number;                           // Matches 'Id' (capital I)
-  "Product Name": string;               // Matches 'Product Name' (with space)
-  Description: string | null;           // Matches 'Description'
-  Price: number;                        // Matches 'Price'
-  Category_id: number;                  // Matches 'Category_id'
-  "Stock Quantity": number;             // Matches 'Stock Quantity' (with space)
-  "Product Image URL": string | null;   // Matches 'Product Image URL' (with space)
-  created_at?: string;                  // Matches 'created_at'
+  id: number;                           // CHANGED TO LOWERCASE
+  "Product Name": string;               
+  Description: string | null;           
+  Price: number;                        
+  Category_id: number;                  
+  "Stock Quantity": number;             
+  "Product Image URL": string | null;   
+  created_at?: string;                  
 }
 
 export interface Category {
-  Category_id: number;                  // Matches 'Category_id'
-  Category_Name: string;                // Matches 'Category_Name'
+  Category_id: number;                  
+  Category_Name: string;                
 }
 
 export interface DashboardStats {
@@ -46,7 +46,7 @@ export const api = {
       query = query.eq('Category_id', parseInt(selectedCategory));
     }
 
-    // Sorting conditions mapped straight to your exact column names
+    // Sorting conditions using lowercase id
     if (sortBy === 'price_asc') {
       query = query.order('Price', { ascending: true });
     } else if (sortBy === 'price_desc') {
@@ -54,7 +54,7 @@ export const api = {
     } else if (sortBy === 'name_asc') {
       query = query.order('Product Name', { ascending: true });
     } else {
-      query = query.order('Id', { ascending: true });
+      query = query.order('id', { ascending: true }); // CHANGED TO LOWERCASE
     }
 
     const { data, error } = await query;
@@ -85,7 +85,6 @@ export const api = {
 
     const products = productsRes.data || [];
     
-    // Aggregation loop multiplying Price by Stock Quantity
     const estimatedNetValue = products.reduce((sum, item) => {
       const price = item.Price || 0;
       const qty = item['Stock Quantity'] || 0;
@@ -108,22 +107,22 @@ export const api = {
     if (error) throw error;
   },
 
-  // Updates an item targeting the capitalized primary key 'Id'
+  // Updates an item targeting the lowercase primary key 'id'
   async updateProduct(id: number, payload: Partial<Product>): Promise<void> {
     const { error } = await supabase
       .from('Products')
       .update(payload)
-      .eq('Id', id);
+      .eq('id', id); // CHANGED TO LOWERCASE
 
     if (error) throw error;
   },
 
-  // Deletes an item targeting the capitalized primary key 'Id'
+  // Deletes an item targeting the lowercase primary key 'id'
   async deleteProduct(id: number): Promise<void> {
     const { error } = await supabase
       .from('Products')
       .delete()
-      .eq('Id', id);
+      .eq('id', id); // CHANGED TO LOWERCASE
 
     if (error) throw error;
   }
