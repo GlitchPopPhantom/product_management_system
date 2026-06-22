@@ -2,25 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { api, Product, Category, DashboardStats } from './api';
 
 export default function Dashboard() {
-  // State management
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Filter and Sorting UI State
   const [search, setSearch] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [sortBy, setSortBy] = useState<string>('');
 
-  // Core data synchronization pipeline
   const loadDashboardData = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Fire off database operations concurrently
       const [productsData, categoriesData, statsData] = await Promise.all([
         api.getProducts(search, selectedCategory, sortBy),
         api.getCategories(),
@@ -38,7 +34,6 @@ export default function Dashboard() {
     }
   };
 
-  // Trigger reload whenever search inputs or sort dropdowns toggle
   useEffect(() => {
     loadDashboardData();
   }, [search, selectedCategory, sortBy]);
@@ -46,7 +41,6 @@ export default function Dashboard() {
   return (
     <div style={{ backgroundColor: '#0b0f19', color: '#fff', minHeight: '100vh', padding: '2rem', fontFamily: 'sans-serif' }}>
       
-      {/* Header Block */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <h1 style={{ fontSize: '1.75rem', fontWeight: 'bold', margin: 0 }}>Catalog Dashboard</h1>
         <div style={{ display: 'flex', gap: '1rem' }}>
@@ -56,14 +50,12 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Case-Sensitive Banner Error Handling */}
       {error && (
         <div style={{ backgroundColor: '#2d1215', borderLeft: '4px solid #f43f5e', color: '#f43f5e', padding: '1rem', borderRadius: '0.375rem', marginBottom: '2rem' }}>
           {error}
         </div>
       )}
 
-      {/* Dynamic Operational Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem', marginBottom: '2rem' }}>
         <div style={{ backgroundColor: '#111827', border: '1px solid #1f2937', padding: '1.5rem', borderRadius: '0.5rem' }}>
           <p style={{ color: '#9ca3af', textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 'bold', margin: '0 0 0.5rem 0' }}>Total Products</p>
@@ -81,7 +73,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Search, Filter, and Ordering Control Row */}
       <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
         <input 
           type="text" 
@@ -116,7 +107,6 @@ export default function Dashboard() {
         </select>
       </div>
 
-      {/* Main Catalog View Container */}
       <div style={{ backgroundColor: '#111827', border: '1px solid #1f2937', borderRadius: '0.5rem', minHeight: '200px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
         {loading ? (
           <p style={{ color: '#9ca3af' }}>Syncing database states...</p>
@@ -135,9 +125,8 @@ export default function Dashboard() {
               </thead>
               <tbody>
                 {products.map((product) => (
-                  <tr key={product.Id} style={{ borderBottom: '1px solid #1f2937' }}>
-                    {/* Maps flawlessly using the correct case-sensitive keys */}
-                    <td style={{ padding: '0.75rem' }}>{product.Id}</td>
+                  <tr key={product.id} style={{ borderBottom: '1px solid #1f2937' }}> {/* CHANGED TO LOWERCASE */}
+                    <td style={{ padding: '0.75rem' }}>{product.id}</td> {/* CHANGED TO LOWERCASE */}
                     <td style={{ padding: '0.75rem', fontWeight: 'bold' }}>{product["Product Name"]}</td>
                     <td style={{ padding: '0.75rem', color: '#10b981' }}>₦{product.Price.toLocaleString()}</td>
                     <td style={{ padding: '0.75rem' }}>{product["Stock Quantity"]}</td>
